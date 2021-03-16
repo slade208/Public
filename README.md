@@ -1,4 +1,4 @@
 # Public
 My public Repository
 
-skynet.html
+https://slade208.github.io/Public/skynet.html
