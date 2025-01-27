@@ -8,4 +8,7 @@ hsstool -h psu cltopmgr -setstate true
 <staging_dir>/CloudianInstallConfiguration.txt
 INSTALL_SKIP_DRIVES_CHECK=true
 
-
+# Git Cheat Sheet
+- \033[31mgit log -5\033[0m: Show the last 5 commits.
+- \033[32mgit checkout -b <branch_name>\033[0m: Create and switch to a new branch.
+- \033[33mgit reset --soft HEAD~1\033[0m: Undo the last commit.
