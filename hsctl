@@ -2,3 +2,6 @@
 
 ## Get the admin API password 
 hsctl config get admin.auth.password
+
+## Get parameters and their setting
+hsctl config get ALL
