@@ -1,9 +1,22 @@
 ## Kinda general hints for logs
 
-## Troubleshoot Cassandra
+## Troubleshoot Cassandra startup and service log 
 /var/log/cassandra/cloudian-cassandra-startup.log
+/var/log/cassandra/system.log
 
+## Troubleshoot gui need to be mindful of which node serves the request
+cloudian-ui.log
+hsctl cmd run "tail -50 /var/log/cloudian/cloudian-ui.log"
+/opt/tomcat/logs
 
-## Troubleshoot gui
+## Log info about the service starting not running 
+/var/log/cloudian/cloudian-hyperstore-startup.log
 
-## 
+## Log info about the service running 
+cloudian-hyperstore.log
+
+## S3 requests and status end to end log 
+/var/log/cloudian/cloudian-request-info.log
+
+## S3 information from the running S3 service this will show errors
+/var/log/cloudian/cloudian-s3.log
