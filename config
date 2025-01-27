@@ -12,3 +12,6 @@ ipmitool lan print 1
 
 ## Get routes including default gateway
 route -n
+
+## DMI decode for hardware info use with -t 1 
+dmidecode -t 1
