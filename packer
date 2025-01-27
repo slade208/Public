@@ -1,0 +1,2 @@
+## Command to run packer 
+packer build -force -on-error=ask -var-file win2019.pkrvars.hcl -var-file vsphere.pkrvars.hcl win2019.pkr.hcl
