@@ -1,10 +1,11 @@
-## Disbales most auto repair things
+\033[32m## Disbales most auto repair things\033[0m
 hsstool -h psu cltopmgr -setstate true
 
-## Check to see if any repairs are in progress
+\033[32m## Check to see if any repairs are in progress\033[0m
 /opt/cloudian/bin/hsstool -h <backend_ip> opstatus
 
-## Optionally skip disk check in the current stating dir (not the upgrade target)
+\033[32m## Optionally skip disk check in the current stating dir (not the upgrade target)\033[0m
 <staging_dir>/CloudianInstallConfiguration.txt
 INSTALL_SKIP_DRIVES_CHECK=true
+
 
