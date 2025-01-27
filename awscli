@@ -1,0 +1,12 @@
+## Sample AWS cli IAM call note the port is needed
+aws iam get-policy --policy-arn arn:aws:iam::db7f08fcb511e374257c01b5ef87344a:policy/iamstevepolicy --profile iamsteve --endpoint-url http://192.168.0.70:16080
+aws iam get-policy --policy-arn arn:aws:iam::db7f08fcb511e374257c01b5ef87344a:policy/iamstevepolicy --profile iamsteve --endpoint-url https://192.168.0.70:16443 --no-verify-ssl
+
+## Configure profile for awscli
+aws configure --profile <PROFILE_NAME>
+
+## List S3
+aws s3 ls --profile <PROFILE_NAME> --endpoint-url https://<IP_ADDRESS> --no-verify-ssl
+
+
+
