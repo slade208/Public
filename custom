@@ -20,4 +20,11 @@ sed -i 's/cmc_view_user_data,false/cmc_view_user_data,true/g' /etc/cloudian-7.2.
 hsctl config set cmc.ui.admin.manageUsers.view.objectDataGrantees=SystemAdmin
 hsctl config apply all
 hsctl service restart cmc --nodes=ALL
-  
+
+## Change Metadata protection level EC.MetadataRF must be one of [2m-1 2m+1]
+hsctl config set hyperstore.storagePolicy.EC.metadataRF=<VALUE>
+
+## Example adding 3:2 as valid policy for EC within a single datacenter
+hsctl config set hyperstore.storagePolicy.EC.singleDC=3:2,4:2,6:2,8:2,9:3,12:4
+hsctl config apply hyperstore
+hsctl service restart <service name> [<service name>] --nodes=ALL [--parallel]
