@@ -15,3 +15,6 @@ route -n
 
 ## DMI decode for hardware info use with -t 1 
 dmidecode -t 1
+
+## Get parameters and their setting
+hsctl config get ALL
