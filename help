@@ -5,3 +5,6 @@ operations.dev/help
 
 ## Hyperstore common hsctl commands
 operations.dev/hsctl
+
+## Awscli commands related to S3/Hyperstore
+operations.dev/awscli
