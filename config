@@ -1,0 +1,14 @@
+## Hyperstore commands to get an idea of the config
+
+
+## To tell what services are on what nodes 
+for Node in  `awk '{print $3}' hosts.cloudian | sort -V`; do echo -e "\n${Node}:"; ssh -i cloudian-installation-key -n ${Node} 'hsctl node info roles'; done
+
+## Get node mode
+hsctl config get cluster.nodes.<HOSTNAME>.mode
+
+## Get ipmi configuration settings
+ipmitool lan print 1
+
+## Get routes including default gateway
+route -n
