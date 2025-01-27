@@ -3,8 +3,14 @@
 ## Enable Bucketstats in 7.x Replace 7.4.2 with your version
 sed -i 's/bucketstats_enabled,false/bucketstats_enabled,true/g' /etc/cloudian-7.4.2-puppet/manifests/extdata/common.csv && sed -i 's/s3_perbucket_qos_enabled,false/s3_perbucket_qos_enabled,true/g' /etc/cloudian-7.4.2-puppet/manifests/extdata/common.csv && /opt/cloudian-staging/7.4.2/cloudianInstall.sh runpuppet="" &&  /opt/cloudian-staging/7.4.2/cloudianService.sh -w /opt/cloudian-staging/7.4.2/ -s s3 restart
 
+## Enable bucket stats in 8.x
+hsctl config set s3.usage.bucketLevel=<boolean>
+hsctl config apply s3
+hsctl service restart s3 --nodes=ALL
+
 ## Enable stats for retroactive bucket data via Admin API call POST /usage/repair?groupId=ALL
 curl -X POST -k -u sysadmin:<PASSWORD> https://localhost:19443/usage/repair?groupId=ALL
+
 
 ## Enable view user data in Hyperstore 7.X
 sed -i 's/cmc_view_user_data,false/cmc_view_user_data,true/g' /etc/cloudian-7.2.4-puppet/manifests/extdata/common.csv
