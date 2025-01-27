@@ -11,3 +11,6 @@ operations.dev/awscli
 
 ## Commands to look at configuration stuff
 operations.dev/config
+
+## Commands for customization
+operations.dev/custom
