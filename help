@@ -8,3 +8,6 @@ operations.dev/hsctl
 
 ## Awscli commands related to S3/Hyperstore
 operations.dev/awscli
+
+## Commands to look at configuration stuff
+operations.dev/config
