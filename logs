@@ -1,0 +1,9 @@
+## Kinda general hints for logs
+
+## Troubleshoot Cassandra
+/var/log/cassandra/cloudian-cassandra-startup.log
+
+
+## Troubleshoot gui
+
+## 
