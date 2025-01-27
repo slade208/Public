@@ -1,0 +1,4 @@
+# Git Cheat Sheet
+- `git log -5`: Show the last 5 commits.
+- `git checkout -b <branch_name>`: Create and switch to a new branch.
+- `git reset --soft HEAD~1`: Undo the last commit.
