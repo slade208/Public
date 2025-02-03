@@ -1,0 +1,11 @@
+## Get version
+hspkg version
+
+## system_setup.sh
+hspkg setup
+
+## CloudianHyperStore-7.2.bin <license file>
+hsrun -r CloudianHyperStore-7.2.bin <license file>
+
+## vi common.csv
+hspkg config -e common.csv
