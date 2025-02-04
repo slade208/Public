@@ -18,3 +18,7 @@ dmidecode -t 1
 
 ## Get parameters and their setting
 hsctl config get ALL
+
+## Get File Services Version
+source /opt/cloudian-salt/8.1.1/cluster/states/shared/files/hf/utils/hf-env
+hf-info
