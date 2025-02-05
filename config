@@ -22,3 +22,6 @@ hsctl config get ALL
 ## Get File Services Version
 source /opt/cloudian-salt/8.1.1/cluster/states/shared/files/hf/utils/hf-env
 hf-info
+
+## Get toplogy dump in 8.1.2+
+hsctl topology dump
