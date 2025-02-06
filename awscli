@@ -8,5 +8,12 @@ aws configure --profile <PROFILE_NAME>
 ## List S3
 aws s3 ls --profile <PROFILE_NAME> --endpoint-url https://<IP_ADDRESS> --no-verify-ssl
 
+## Sample query filter in specific time frame for number of objects and size
+aws --endpoint=http://s3-trn.ridembl.net:80 s3api list-objects-v2 --bucket newgenetec01 --query '[sum(Contents[?(LastModified >= `2025-02-05T08:00:00` && LastModified <= `2025-02-06T08:00:00`)].Size), length(Contents[?(LastModified >= `2025-02-05T08:00:00` && LastModified <= `2025-02-06T08:00:00` && Size > `0`)])]'
+[
+    1284258737274, (this is data in bytes) aka 1200 Gib
+    14772 (number of objects)
+]
+
 
 
