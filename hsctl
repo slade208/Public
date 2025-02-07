@@ -13,3 +13,6 @@ hsctl service restart s3 --nodes=ALL
 
 ## Service status
 hsctl service status all
+
+## Patch install
+hsctl patch install <FILE>
