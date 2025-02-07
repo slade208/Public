@@ -1,5 +1,5 @@
 ## Disbales most auto repair things
-hsstool -h psu cltopmgr -setstate true
+hsstool -h <backend_ip> cltopmgr -setstate true
 
 ## Check to see if any repairs are in progress
 /opt/cloudian/bin/hsstool -h <backend_ip> opstatus
