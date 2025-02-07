@@ -16,3 +16,6 @@ hsrun -r CloudianHyperStore-7.2.bin /opt/cloudian/conf/<license file>
 
 ## vi common.csv
 hspkg config -e common.csv
+
+## Get network link speed
+cat /sys/class/net/<INTERFACE_NAME>/speed
