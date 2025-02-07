@@ -1,3 +1,10 @@
+## Get hsh status
+hsctl config get hsh.enabled
+
+## Enable hsh
+hsctl config set hsh.enabled=true
+hsctl config apply hsh
+
 ## Get version
 hspkg version
 
