@@ -12,7 +12,7 @@ hspkg version
 hspkg setup
 
 ## CloudianHyperStore-7.2.bin <license file>
-hsrun -r CloudianHyperStore-7.2.bin <license file>
+hsrun -r CloudianHyperStore-7.2.bin /opt/cloudian/conf/<license file>
 
 ## vi common.csv
 hspkg config -e common.csv
