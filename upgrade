@@ -8,3 +8,4 @@ hsstool -h <backend_ip> cltopmgr -setstate true
 <staging_dir>/CloudianInstallConfiguration.txt
 INSTALL_SKIP_DRIVES_CHECK=true
 
+## Check the Cassandra drive mount prior to upgrade
