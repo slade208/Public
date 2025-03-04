@@ -1,7 +1,7 @@
 ## Disbales most auto repair things
 hsstool -h <backend_ip> cltopmgr -setstate true
 
-## Check to see if any repairs are in progress
+## Check to see if any repairs are in progress just hsstool if in hsh
 /opt/cloudian/bin/hsstool -h <backend_ip> opstatus
 
 ## Optionally skip disk check in the current stating dir (not the upgrade target)
