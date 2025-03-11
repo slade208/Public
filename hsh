@@ -11,6 +11,9 @@ hspkg version
 ## system_setup.sh
 hspkg setup
 
+## Start Installer
+hspkg install
+
 ## CloudianHyperStore-7.2.bin <license file>
 hsrun -r CloudianHyperStore-7.2.bin /opt/cloudian/conf/<license file>
 
