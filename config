@@ -28,3 +28,6 @@ hsctl topology dump
 
 ## See the cleanup parameters
 hsctl config get hyperstore.cleanup
+
+## see hsctl arguments (look at the arguments section)
+hsctl config apply -h
