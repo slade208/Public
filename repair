@@ -1,0 +1,11 @@
+- The maximum time for which proactive repair jobs can be queued for a node that is unavailable is 4 hours by default, and is configurable
+- Also configurable is the regular interval at which each node in the cluster checks whether there are any queued proactive repair jobs for itself, and executes those jobs if there are any (default = 1 hour)
+
+Scheduled Auto-Repair
+- To repair replicated object data, each node is scheduled to have hsstool repair automatically run on it once every 30 days.
+- To repair erasure coded object data, each node is scheduled to have hsstool repairec automatically run on it once every 29 days.
+- To repair metadata in Cassandra, each node is scheduled to have hsstool repaircassandra automatically run on it once every 7 days.
+
+## check repair config and status
+hsstool -h <backend_ip> repairqueue
+hsstool -h <backend_up> opstatus
