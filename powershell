@@ -1,0 +1,6 @@
+## Fix this stupid windows ssh Corrupted MAC on input
+Create or edit the config file located in `%USERPROFILE%\.ssh\` and add the following lines:
+Code
+
+Host <hostname or IP address>
+    MACs hmac-sha2-512
