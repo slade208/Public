@@ -22,3 +22,9 @@ hspkg config -e common.csv
 
 ## Get network link speed
 cat /sys/class/net/<INTERFACE_NAME>/speed
+
+##shutdown 7.5.x hsh
+systemctl poweroff
+
+##shutdown 8.x hsh
+hsctl cmd run "shutdown -h +1"
