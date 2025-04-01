@@ -1,5 +1,5 @@
 git clone git@github.com:slade208/terraform-cloudflare.git
-git chcekout -b dc2node5
+git checkout -b dc2node5
 git diff
 git add .
 git config --global user.name "Steve Yu"
