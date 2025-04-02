@@ -31,3 +31,9 @@ hsctl config get hyperstore.cleanup
 
 ## see hsctl arguments (look at the arguments section)
 hsctl config apply -h
+
+## 8.2+ Get hsdns status
+salt '*' cloudian-hsdns-service.status
+
+## Get salt minion to host mapping
+salt '*' grains.get host
