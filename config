@@ -37,3 +37,6 @@ salt '*' cloudian-hsdns-service.status
 
 ## Get salt minion to host mapping
 salt '*' grains.get host
+
+## 8.2+ hsdns status + host mapping combo meal
+hsctl config get cluster --jq='.nodes[] | .name' | while read name; do echo "$name:"; salt --pillar "salt:node:name:$name" cloudian-hsdns-service.status --out=json | jq '.[]'; done
