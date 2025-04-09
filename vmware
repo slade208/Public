@@ -1,0 +1,10 @@
+##upgrade vcenter on cli
+root@vcsa [ ~ ]# appliancesh
+Password:
+Connected to service
+
+    * List APIs: "help api list"
+    * List Plugins: "help pi list"
+    * Launch BASH: "shell"
+
+Command> software-packages install --url --acceptEulas
