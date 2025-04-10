@@ -29,7 +29,7 @@ hsctl config set hyperstore.storagePolicy.EC.metadataRF=<VALUE>
 hsctl config set hyperstore.storagePolicy.EC.singleDC=3:2,4:2,6:2,8:2,9:3,12:4
 hsctl config set hyperstore.storagePolicy.EC.replicatedDC=3:2,4:2,6:2,8:2,9:3,12:4
 hsctl config apply hyperstore
-hsctl service restart <service name> [<service name>] --nodes=ALL [--parallel]
+hsctl service restart hyperstore cloudian-s3 --nodes=ALL
 
 ## purge bucket in cmc option
 hsctl config set cmc.purgeBucket.enabled=<boolean>
