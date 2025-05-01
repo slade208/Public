@@ -1,4 +1,4 @@
-## Disbales most auto repair things
+## Disables most auto repair things
 hsstool -h <backend_ip> cltopmgr -setstate true
 
 ## Check to see if any repairs are in progress just hsstool if in hsh
