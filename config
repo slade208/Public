@@ -48,3 +48,9 @@ hsctl cmd run 'grep ERROR /var/log/cassandra/system.log|wc -l'|grep -v Node
 all, admin, agent, cassandra, cmc, common, fips, file, firewall, hsdns,
 hsh, hyperstore, iam, jobs, lb, license, logging, monitoring, ntp, pki,
 redis, redismon, s3, saml, sqs, ssh
+
+## get endpoints on cli
+hsctl config get ALL |grep -i dnsname
+
+## get group list
+curl -u "sysadmin:$(hsctl config get admin.auth.password)" -k -G https://<IP ADDRESS>:19443/group/list
