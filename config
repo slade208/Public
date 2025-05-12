@@ -54,3 +54,6 @@ hsctl config get ALL |grep -i dnsname
 
 ## get group list
 curl -u "sysadmin:$(hsctl config get admin.auth.password)" -k -G https://<IP ADDRESS>:19443/group/list
+
+## get PSU status
+ipmitool sdr list | grep PSU
