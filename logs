@@ -15,7 +15,7 @@ hsctl cmd run "tail -50 /var/log/cloudian/cloudian-ui.log"
 ## Log info about the service running 
 cloudian-hyperstore.log
 
-## S3 requests and status end to end log 
+## S3 requests and status end to end log (deletes)
 /var/log/cloudian/cloudian-request-info.log
 
 ## S3 information from the running S3 service this will show errors
