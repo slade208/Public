@@ -1,4 +1,4 @@
-## This is the list of cheats that are accessible via operations.dev/<name>
+## This is the list of cheats that are accessible via curl operations.dev/<name>
 
 ## Hyperstore upgrade tips
 operations.dev/upgrade
@@ -26,3 +26,6 @@ operations.dev/repair
 
 ## vmware stuff
 operations.dev/vmware
+
+## Cloudian Cent to Rocky migration
+operations.dev/osmigrate
