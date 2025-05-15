@@ -2,7 +2,7 @@
 
 1.  Check to make sure you have IPMI access to your nodes
 2.  On the config controller node execute  #hsctl cmd run ‘mkdir /root/os_migration’
-3.  Use wget on the config controller to download the 3 items below and move them into /root/os_migration
+3.  Use wget on the config controller to download the 3 items at bottom and move them into /root/os_migration
 4.  Push migration files to all nodes # for node in $(hsstool status | grep Up | awk '{print $NF}'); do scp -i /export/home/cloudian/cloudian-installation-key CloudianHyperStore-RL8OS-Migration-1.3-bundled-v4.zip $node:/root/os_migration; done
 5.  Push rocky ISO files to all nodes # for node in $(hsstool status | grep Up | awk '{print $NF}'); do scp -i /export/home/cloudian/cloudian-installation-key Rocky-8.10-x86_64-dvd1.iso $node:/root/os_migration; done
 6.  Push OS Update files to all nodes # for node in $(hsstool status | grep Up | awk '{print $NF}'); do scp -i /export/home/cloudian/cloudian-installation-key CloudianHyperStore-OSUpdate-3.1.zip $node:/root/os_migration; done
