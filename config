@@ -57,3 +57,6 @@ curl -u "sysadmin:$(hsctl config get admin.auth.password)" -k -G https://<IP ADD
 
 ## get PSU status
 ipmitool sdr list | grep PSU
+
+## show all operations per node
+hsctl cmd run 'cut -d "|" -f 4,14 /var/log/cloudian/cloudian-request-info.log|sort -V | uniq -c'
