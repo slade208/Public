@@ -20,3 +20,22 @@ cloudian-hyperstore.log
 
 ## S3 information from the running S3 service this will show errors
 /var/log/cloudian/cloudian-s3.log
+
+## hyperstore-request-info.log columns
+(1)Datetime
+(2)IP
+(3)User id
+(4)API
+(5)Bucket name
+(6)Access user id
+(7)Request header size
+(8)Request body size byte length
+(9)Response header size
+(10)Response body size
+(11)Total size
+(12)Duration
+(13)objectName
+(14)http status
+(15)request id
+(16)object Etag
+(17)Status Message
