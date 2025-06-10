@@ -60,3 +60,15 @@ ipmitool sdr list | grep PSU
 
 ## show all operations per node
 hsctl cmd run 'cut -d "|" -f 4,14 /var/log/cloudian/cloudian-request-info.log|sort -V | uniq -c'
+
+# S3 cert
+echo | openssl s_client -connect $(hostname):443 | openssl x509 -noout -dates
+
+# Admin cert
+echo | openssl s_client -connect $(hostname):19443 | openssl x509 -noout -dates
+
+# CMC cert
+echo | openssl s_client -connect $(hostname):8443 | openssl x509 -noout -dates
+
+# IAM cert
+echo | openssl s_client -connect $(hostname):16443 | openssl x509 -noout -dates
