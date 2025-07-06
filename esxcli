@@ -1,0 +1,5 @@
+## Get ip addresses 
+esxcli network ip interface ipv4 get
+
+## show mac addresses 
+esxcli network nic list
