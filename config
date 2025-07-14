@@ -72,3 +72,6 @@ echo | openssl s_client -connect $(hostname):8443 | openssl x509 -noout -dates
 
 # IAM cert
 echo | openssl s_client -connect $(hostname):16443 | openssl x509 -noout -dates
+
+# Get backend ip 
+hsctl config get network --node <Node_Name>
