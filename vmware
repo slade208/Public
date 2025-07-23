@@ -1,4 +1,4 @@
-##upgrade vcenter on cli
+## Upgrade vcenter on cli
 root@vcsa [ ~ ]# appliancesh
 Password:
 Connected to service
@@ -8,3 +8,10 @@ Connected to service
     * Launch BASH: "shell"
 
 Command> software-packages install --url --acceptEulas
+
+
+## Get ip addresses 
+esxcli network ip interface ipv4 get
+
+## show mac addresses 
+esxcli network nic list
