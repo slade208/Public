@@ -3,6 +3,8 @@
 
 ## To tell what services are on what nodes 
 for Node in  `awk '{print $3}' hosts.cloudian | sort -V`; do echo -e "\n${Node}:"; ssh -i cloudian-installation-key -n ${Node} 'hsctl node info roles'; done
+or
+cat /etc/cloudian/dynstore/topology.toml
 
 ## Get node mode
 hsctl config get cluster.nodes.<HOSTNAME>.mode
