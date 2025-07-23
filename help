@@ -1,31 +1,14 @@
 ## This is the list of cheats that are accessible via curl operations.dev/<name>
 
-## Hyperstore upgrade tips
-operations.dev/upgrade
-
-## Hyperstore common hsctl commands
-operations.dev/hsctl
-
-## Awscli commands related to S3/Hyperstore
-operations.dev/awscli
-
-## Commands to look at configuration stuff
-operations.dev/config
-
-## Commands for customization
-operations.dev/custom
-
-## Log descriptions
-operations.dev/logs
-
-## HSH 
-operations.dev/hsh
-
-## Repair notes
-operations.dev/repair
-
-## vmware stuff
-operations.dev/vmware
-
-## Cloudian Cent to Rocky migration
-operations.dev/osmigrate
+operations.dev/awscli                         - Awscli commands related to S3/Hyperstore
+operations.dev/config                         - Commands to look at configuration stuff
+operations.dev/custom                         - Commands for customization
+operations.dev/git                            - github command line notes
+operations.dev/hsctl                          - Hyperstore common hsctl commands
+operations.dev/hsh                            - HSH 
+operations.dev/license                        - Cloudian license stuff
+operations.dev/logs                           - Log descriptions
+operations.dev/osmigrate                      - Cloudian Cent to Rocky migration
+operations.dev/repair                         - Repair notes
+operations.dev/upgrade                        - Hyperstore upgrade tips
+operations.dev/vmware                         - vmware stuff
