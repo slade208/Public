@@ -81,3 +81,6 @@ hsctl config get network --node <Node_Name>
 #check call home on primary cron and manually invoke client side. Cloudian side phonehome data is processed once a day at 11:20 Pacific
 nc -zv s3-support.cloudian.com 443 
 /opt/cloudian/tools/phoneHome
+
+# Service status
+systemctl list-units |grep -i cloudian
