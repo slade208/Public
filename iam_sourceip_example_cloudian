@@ -1,0 +1,26 @@
+# IAM policy to only allow put object from 192.168.0.90
+# You can also combine with other policies like allow all 
+
+{
+    "Id": "SourceIP",
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SourceIP",
+            "Action": "s3:PutObject",
+            "Effect": "Deny",
+            "Resource": [
+                "arn:aws:s3:::bucket1",
+                "arn:aws:s3:::bucket1/*"
+            ],
+            "Condition": {
+                "NotIpAddress": {
+                    "aws:SourceIp": [
+                        "192.168.0.90/32",
+                        "10.10.10.90/32"
+                    ]
+                }
+            }
+        }
+    ]
+}
