@@ -11,6 +11,7 @@
 9.  run a fsck -n /dev/ <all disk devices>. If you get any disks that need to be fixed you will be forced to do so in single user mode after step 5 reboot
 10.  Execute script   ./runMigration
 11. Repeat steps 7-9 for everynode leaving config controller last
+12. Post migration run #hsctl cmd run 'systemctl stop sysstat;mv -v /var/log/sa{,.oldformat};mkdir -v /var/log/sa;systemctl start sysstat;sar -v'
 
 wget https://abucketnamedsteve.s3.us-west-1.amazonaws.com/CloudianHyperStore-RL8OS-Migration-1.3-bundled-v4.zip
 wget https://abucketnamedsteve.s3.us-west-1.amazonaws.com/Rocky-8.10-x86_64-dvd1.iso
