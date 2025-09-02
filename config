@@ -84,3 +84,6 @@ nc -zv s3-support.cloudian.com 443
 
 # Service status
 systemctl list-units |grep -i cloudian
+
+# admin api healthcheck
+ curl -k -I -u `hsctl config get admin.auth.username`:`hsctl config get admin.auth.password` -i https://<NODENAME>:19443/.healthCheck
