@@ -41,3 +41,6 @@ hsctl config set s3.sosapi.enabled=true
 hsctl config apply s3
 hsctl service restart s3 --nodes=ALL
 
+## 8.2+ Automatic Config Controller failover 
+hsctl config get common.configController.failover
+hsctl config set common.configController.failover=auto
