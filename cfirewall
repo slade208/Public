@@ -1,0 +1,27 @@
+##These are my hints for customizing cloudian firewall
+
+hsctl config get firewall
+
+Notes
+Firewall group name when applied to allow means only allow this group deny everything else with the exception of other hyperstore nodes
+Firewall group name when applied to deny  means deny this group
+
+1. Create the group name and set the ip values 
+Create firewall group name ignore the name it really is list of addresses you want to apply
+hsctl config create firewall.acl <group name>
+
+
+Set ip address range for the group
+hsctl config set firewall.acl.deny_list.addrs="192.168.0.80/32"
+
+
+2. apply it to any of the default service targets that were already created for you
+hsctl config set firewall.services.admin.main.https.allow=<group name>
+
+3. For custom service/port you have to create the custom name and define the ports for the custom firewall service
+
+hsctl config create firewall.services.custom sshonly
+hsctl config set firewall.services.custom.sshonly.ports=tcp/22
+
+4. Then you can apply the ip group from step 1 to the custom firewall service
+hsctl config set firewall.services.custom.sshonly.allow=<group name>
