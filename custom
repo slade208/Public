@@ -44,3 +44,6 @@ hsctl service restart s3 --nodes=ALL
 ## 8.2+ Automatic Config Controller failover 
 hsctl config get common.configController.failover
 hsctl config set common.configController.failover=auto
+
+## Need custom Cloudian firewall rules?
+curl operations.dev/cfirewall
