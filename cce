@@ -1,0 +1,199 @@
+Student 3
+
+Please set the password for CMC: @StudentX where X= your student ID
+
+root password - cloudian123
+
+Lab: http://labs.cloudian.tech/ccaV81/
+
+#Install screen - will not run in the bastion server
+dnf install screen
+
+# run 
+system_setup.sh 
+#on all 5 or 6 nodes 
+/root/CloudianTools
+
+# =======================
+#  Extract Binary and configure memory for virtual environment
+# =======================
+# Download HyperStore binary and mem80 script
+
+cd /root/CloudianPackages
+mkdir binaries8.1.1
+cd binaries8.1.1
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/images/CloudianHyperStore-8.1.1.bin
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/images/cloudian_12345.lic
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/infra/mem80.sh
+
+#Make binary and sh file executable
+chmod +x *.bin *.sh
+
+#Extract the binary file
+./CloudianHyperStore-8.1.1.bin cloudian_12345.lic
+
+# =======================
+# System Setup
+# =======================
+# Run systems setup for the staging folder
+cd /opt/cloudian-staging/8.1.1
+./system_setup.sh
+
+# ************* CloudianInstall *************
+./cloudianInstall.sh force
+
+#Run the memory file - only required for this training lab environment.  *** VERY IMPORTANT THAT YOU RUN THIS ***
+./mem80.sh
+
+#Ensure that Mem80 was run correctly, should see rows with 300m and not 32G or 16G
+hsctl config get all | grep heap
+
+#Set 2M+1 
+hsctl config set hyperstore.storagePolicy.EC.metadataRF=2m+1
+#set CMC View
+hsctl config set cmc.ui.admin.manageUsers.view.objectDataGrantees=SystemAdmin,GroupAdmin
+
+#set 3:2 as an optional EC policy (day 1 only)
+hsctl config set hyperstore.storagePolicy.EC.singleDC=3:2,4:2,6:2,8:2,9:3,12:4
+#apply the changes
+hsctl config apply all
+
+#========================
+# Config applied?
+#========================
+hsctl config preview
+
+# =======================
+# SSL
+# =======================
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/infra/privkey.pem
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/infra/fullchain.pem
+
+hsctl cert import fullchain.pem privkey.pem /etc/pki/tls/certs/ca-bundle.crt
+hsctl config apply all
+Restart all HyperStore services.
+
+openssl s_client -showcerts -connect cmc.studentX.cloudian.tech:8443 < /dev/null 2> /dev/null | openssl x509 -noout -dates
+
+#========================
+# HyperIQ - Node 6 day 1
+#========================
+
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/images/HyperIQ_2.1.1.bin
+chmod +x HyperIQ_2.1.1.bin
+./HyperIQ_2.1.1.bin install
+unique name, enter `studentX` where `X` is your student number
+IP address of a HyperStore node, enter the IP of your node1 from your HyperStore cluster
+username, enter the HyperStore Shell username of `root`
+SSH password for user `root` enter the nodes root password  
+add a HyperBalance pair to monitor, answer `yes`  
+IP address of the first HyperBalance node, enter `10.150.1.19X` where X is your student number  
+IP address of the second HyperBalance node, enter `10.150.1.20XS` where X is your student number  
+HyperBalance pair [loadbalancer]: hit return
+HyperBalance pair password for user loadbalancer [ ]: type in the password your instructor previously gave you
+another HyperBalance pair to monitor, answer `no`	
+another HyperStore cluster, answer `no`  
+password for HyperIQ UI, enter `123cloudian456`. Confirm your input in the next prompt.
+
+
+#========================
+# Patching
+#========================
+cd /root/CloudianPackages
+mkdir binaries8.1.1.3
+cd binaries8.1.1.3
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/images/CloudianHyperStorePatch-8.1.1.3.bin
+hsctl patch install CloudianHyperStorePatch-8.1.1.3.bin
+
+# =======================
+# Upgrade - root
+# =======================
+# Place the Cloudian Packages in folder /root/CloudianPackages/binaries8.2.1
+mkdir /root/CloudianPackages/binaries8.2.1
+cd /root/CloudianPackages/binaries8.2.1
+wget --user=admin --password=cloudian123 http://10.150.1.252:8080/images/CloudianHyperStore-8.2.1.bin
+./CloudianHyperStore-8.2.1.bin
+
+#In Version 8, there is no requirement to move or copy a license file, the system will identify a correct license 
+
+/etc/resolv.conf 
+
+# =======================
+# Upgrade with HyperStore Shell enabled
+# =======================
+cd /tmp
+wget <web url\CloudianHyperStore-x.x.x.bin> or use scp or powershell to transfer binary file (please refer to knowledge base document in support)
+wget <web url\CloudianHyperStore-x.x.x.sig> or use scp or powershell to transfer binary file (please refer to knowledge base document in support)
+
+#Make binary executable
+chmod +x CloudianHyperStore-x.x.x.bin
+
+#Execute binary
+hsrun --root CloudianHyperStore-x.x.x.bin
+
+
+# =======================
+# Firewall
+# =======================
+#View the Firewall log
+hsctl logs /var/log/cloudian/firewall.log -f
+
+#Status of Firewall
+systemctl status cloudian-firewalld
+
+#Disable Firewall
+hsctl config set firewall.enabled=False
+
+#Apply configuration
+hsctl config apply firewall
+
+#Enable firewall
+hsctl config set firewall.enabled=True
+
+
+new commands - vary by version
+hsctl config create firewall.acl
+hsctl config set firewall.acl.<group name>.addrs="10.150.1. 0/24“
+hsctl config set firewall.services.admin.main.https.allow=<group name>
+hsctl config create firewall.services.custom sshonly
+hsctl config set firewall.services.custom.sshonly.ports=tcp/22
+hsctl config set firewall.services.custom.sshonly.allow=<group name>
+hsctl config apply all
+
+# =======================
+# HyperStore Shell
+# =======================
+#Check status of HyperStore Shell
+hsctl config get hsh.enabled
+
+#Enable HyperStore Shell
+hsctl config set hsh.enabled=true
+
+#Apply the configuration
+hsctl config apply hsh
+
+#Promote an admin user as trusted
+hspkg role –a sa_hshuser1 trusted
+
+#Remove trusted permissions
+hspkg role –d sa_hshuser1 trusted
+
+
+# =======================
+# Useful commands
+# =======================
+
+# Restart services
+
+hsctl service restart s3 --nodes=all
+
+hsctl service restart cmc --nodes=all
+
+# To restart multiple services
+hsctl service restart all --nodes=all
+
+# =======================
+# PhoneHome / Smart Support Checks
+# =======================
+nc -zv support.cloudianhyperstore.com 443
+curl -v -k https://s3-support.cloudian.com
