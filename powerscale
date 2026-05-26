@@ -39,4 +39,65 @@ isi nfs exports list
 #Test mount from a client 
 mount -t nfs <node-ip>:/ifs/data/test /mnt/onefs-test
 
+==Configure DNS ==
+isi network groupnets list
+isi network groupnets view groupnet0
+isi network groupnets modify groupnet0 --dns-servers=192.168.0.1,1.1.1.1
+isi network groupnets modify groupnet0 --dns-search=lab.local
+
+
+==Enable SMB test Share ==
+mkdir -p /ifs/data/test
+chmod 777 /ifs/data/test
+
+isi smb shares create \
+  --name=test \
+  --path=/ifs/data/test \
+  --description="Lab test share" \
+  --browsable=true
+
+isi smb shares permission modify test \
+  --wellknown=Everyone \
+  --permission-type=allow \
+  --permission=full
+
+Write a file called hello-from-smb.txt
+
+== Enable NFS test Share ==
+
+isi services nfs enable
+mkdir -p /ifs/data/nfs-test
+chmod 777 /ifs/data/nfs-test
+
+isi nfs exports create \
+  --paths=/ifs/data/test \
+  --description="Lab test export" \
+  --read-write-clients=192.168.0.0/24 \
+  --root-clients=192.168.0.0/24 \
+  --map-root-enabled=false
+
+# Discover exports
+showmount -e <node-ip>
+# Mount
+sudo mkdir -p /mnt/onefs-test
+sudo mount -t nfs <node-ip>:/ifs/data/test /mnt/onefs-test
+
+# Confirm
+df -h | grep onefs-test
+touch /mnt/onefs-test/hello-from-nfs
+
+
+== Enable S3 ==
+
+# Create a bucket — owned by root for lab simplicity
+isi s3 buckets create test-bucket /ifs/data/test \
+  --owner=root \
+  --description="Lab test bucket" \
+  --acls="name=root,type=user,perm=FULL_CONTROL"
+
+# Generate S3 Access and Secret Key
+isi s3 keys create --user=root --zone=System
+
+# S3 Endpoint info
+--endpoint-url https://<node-ip>:9021 --no-verify-ssl
 
