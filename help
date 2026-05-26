@@ -12,9 +12,4 @@ operations.dev/osmigrate                      - Cloudian Cent to Rocky migration
 operations.dev/repair                         - Repair notes
 operations.dev/upgrade                        - Hyperstore upgrade tips
 operations.dev/vmware                         - vmware stuff
-
-Get-CimInstance Win32_Process -Filter "Name='explorer.exe'" | ForEach-Object { [PSCustomObject]@{ PID=$_.ProcessId; WS_KB=[math]::Round($_.WorkingSetSize/1KB); ParentPID=$_.ParentProcessId; ParentName=(Get-CimInstance Win32_Process -Filter "ProcessId=$($_.ParentProcessId)" -ErrorAction SilentlyContinue).Name } }
-
-Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ShellExecuteHooks" -ErrorAction SilentlyContinue
-
-Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Browser Helper Objects" -ErrorAction SilentlyContinue
+operations.dev/powerscale                     - Dell Powerscale OneFS 
