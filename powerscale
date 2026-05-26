@@ -1,0 +1,42 @@
+Web Address = https://<IP Address>:8080
+
+# Check if you've actually formed/joined a cluster
+isi status
+
+# Check what services are running
+isi services -a
+
+# Specifically check the web admin service
+isi services -a | grep -i webui
+# or
+isi services apache2 enable      # OneFS 8.x naming
+isi services -a isi_webui_d      # OneFS 9.x naming on some builds
+
+# See what's on/off
+isi services -a
+
+# Turn on the big three
+isi services smb enable
+isi services nfs enable
+isi services s3 enable          # only if you want S3 
+
+
+== Since 9.x ships without the default /ifs share and export, you have to make them: ==
+# Create a directory to share
+mkdir -p /ifs/data/test
+chmod 777 /ifs/data/test        # lab-only, obviously
+
+# SMB share
+isi smb shares create --name=test --path=/ifs/data/test --browsable=true
+
+# NFS export
+isi nfs exports create --paths=/ifs/data/test --description="test export"
+
+# Verify
+isi smb shares list
+isi nfs exports list
+
+#Test mount from a client 
+mount -t nfs <node-ip>:/ifs/data/test /mnt/onefs-test
+
+
