@@ -10,7 +10,7 @@ hsctl config apply s3 cmc
 hsctl service restart s3 cmc --nodes=ALL
 
 ## Enable stats for retroactive bucket data via Admin API call POST /usage/repair?groupId=ALL
-curl -X POST -k -u sysadmin:<PASSWORD> https://localhost:19443/usage/repair?groupId=ALL
+curl -X POST -k -u "sysadmin:$(hsctl config get admin.auth.password)" https://localhost:19443/usage/repair?groupId=ALL
 
 
 ## Enable view user data in Hyperstore 7.X
