@@ -1,0 +1,468 @@
+===============================================================================
+ OBSIDIAN CHEAT SHEET
+ curl operations.dev/obsidian
+===============================================================================
+ 
+CONTENTS
+  1.  Mental model
+  2.  Links, embeds, blocks
+  3.  Markdown Obsidian supports
+  4.  Callouts
+  5.  Properties (YAML frontmatter)
+  6.  Tags
+  7.  Search query syntax
+  8.  Hotkeys
+  9.  Templates + daily notes
+  10. Core plugins worth turning on
+  11. Community plugins worth installing
+  12. Dataview quick reference
+  13. Vault on disk / git
+  14. URI scheme
+  15. Gotchas
+ 
+ 
+-------------------------------------------------------------------------------
+1. MENTAL MODEL
+-------------------------------------------------------------------------------
+ 
+  A vault is just a folder of .md files. No database, no lock-in.
+  Obsidian is a renderer + link graph on top of plain files.
+ 
+  Anything you can do with grep, ripgrep, sed, or git works on a vault.
+  Config lives in <vault>/.obsidian/ (JSON). Everything else is yours.
+ 
+  Editing modes:
+    Reading view    rendered output
+    Live Preview    renders inline, shows raw syntax at cursor  (default)
+    Source mode     raw markdown always
+  Toggle read/edit: Ctrl+E   Toggle Live Preview/Source: Settings > Editor
+ 
+ 
+-------------------------------------------------------------------------------
+2. LINKS, EMBEDS, BLOCKS
+-------------------------------------------------------------------------------
+ 
+  [[Note Name]]                  wikilink
+  [[Note Name|Display text]]     wikilink with alt display text
+  [[Note#Heading]]               link to a heading in a note
+  [[Note#Head#Subhead]]          link to a nested heading
+  [[Note#^abc123]]               link to a specific block
+  [[#Heading]]                   link to heading in the CURRENT note
+  [text](Note%20Name.md)         standard markdown link (also works)
+  [text](https://example.com)    external link
+ 
+  ![[Note Name]]                 embed (transclude) an entire note
+  ![[Note#Heading]]              embed just that section
+  ![[Note#^abc123]]              embed just that block
+  ![[image.png]]                 embed an image
+  ![[image.png|400]]             embed image, width 400px
+  ![[image.png|400x300]]         embed image, fixed w x h
+  ![[doc.pdf#page=3]]            embed a PDF at a page
+  ![[clip.mp4]]                  embed audio/video
+ 
+  Block IDs: append ^someid to the END of a paragraph or list item.
+ 
+      This is the paragraph I want to reference. ^design-note
+ 
+  Typing [[Note#^ then picking from the autocomplete generates the ID
+  for you.
+ 
+  Unresolved links (target does not exist yet) show dimmed. Clicking one
+  creates the note. This is the fastest way to outline a vault.
+ 
+  Aliases in frontmatter make [[alias]] resolve to the real note.
+ 
+ 
+-------------------------------------------------------------------------------
+3. MARKDOWN OBSIDIAN SUPPORTS
+-------------------------------------------------------------------------------
+ 
+  # H1 .. ###### H6
+  **bold**   *italic*   ***bold italic***   ~~strikethrough~~
+  ==highlight==
+  `inline code`
+  %%this is a comment, invisible in reading view%%
+  %%
+  multi-line comment
+  %%
+ 
+  > blockquote
+  ---            horizontal rule (also *** or ___)
+ 
+  - unordered list
+    - nested (indent 2 or 4 spaces, be consistent)
+  1. ordered list
+  - [ ] open task
+  - [x] done task
+  - [/] custom state (renders only with a theme/plugin that styles it)
+ 
+  Tables:
+    | Col A | Col B |
+    | ----- | ----: |
+    | val   |    42 |
+ 
+  Fenced code:
+    ```bash
+    rsync -avh --progress src/ dst/
+    ```
+ 
+  Mermaid diagrams:
+    ```mermaid
+    graph TD
+      A[NAS] --> B[DobiMigrate]
+      B --> C[FSx for ONTAP]
+    ```
+ 
+  Math (MathJax):
+    inline $E = mc^2$
+    block   $$\sum_{i=1}^{n} i$$
+ 
+  Footnotes:
+    Some claim.[^1]
+    [^1]: The supporting detail.
+ 
+    Inline footnote: Some claim.^[the detail right here]
+ 
+  Escaping: backslash a character to keep it literal, e.g. \[\[not a link\]\]
+ 
+ 
+-------------------------------------------------------------------------------
+4. CALLOUTS
+-------------------------------------------------------------------------------
+ 
+  Syntax is a blockquote with a type marker on the first line.
+ 
+    > [!note] Optional custom title
+    > Body text. Callouts nest and can contain lists, code, links.
+ 
+  Foldable variants:
+    > [!tip]-  collapsed by default
+    > [!tip]+  expanded by default, but collapsible
+ 
+  Types (aliases in parens, they render identically):
+    note
+    abstract   (summary, tldr)
+    info
+    todo
+    tip        (hint, important)
+    success    (check, done)
+    question   (help, faq)
+    warning    (caution, attention)
+    failure    (fail, missing)
+    danger     (error)
+    bug
+    example
+    quote      (cite)
+ 
+  Nesting:
+    > [!warning] Outer
+    > > [!info] Inner
+ 
+ 
+-------------------------------------------------------------------------------
+5. PROPERTIES (YAML FRONTMATTER)
+-------------------------------------------------------------------------------
+ 
+  Must be the very first thing in the file, fenced by ---
+ 
+    ---
+    title: XCP vs DobiMigrate SMB Lab
+    aliases:
+      - xcp lab
+      - smb migration lab
+    tags:
+      - lab
+      - datadobi
+    status: active
+    date: 2026-07-24
+    reviewed: false
+    cssclasses:
+      - wide-page
+    ---
+ 
+  Property types Obsidian understands: Text, List, Number, Checkbox,
+  Date, Date & time. Type is set per-property-name vault-wide.
+ 
+  Reserved / special keys:
+    tags        adds tags without inline #tag
+    aliases     alternate names that resolve in [[ ]] and quick switcher
+    cssclasses  applies CSS classes to that note
+    publish     used by Obsidian Publish
+ 
+  Dates use YYYY-MM-DD. Datetimes use YYYY-MM-DDTHH:mm:ss.
+  Bare true/false become checkboxes. Quote them if you want text.
+ 
+  Cmd/Ctrl+; ... actually: use the command palette > "Add file property".
+ 
+ 
+-------------------------------------------------------------------------------
+6. TAGS
+-------------------------------------------------------------------------------
+ 
+  #tag                    inline anywhere in the body
+  #parent/child/leaf      nested tags, filterable at any level
+  tags: [a, b] in YAML    preferred for structured metadata
+ 
+  Rules:
+    - No spaces. Use - or _ or /
+    - Cannot be purely numeric (#2026 is invalid, #y2026 is fine)
+    - Case-insensitive for matching, but the first-used casing sticks
+ 
+  Tags vs links vs folders:
+    folders  one home per note, physical
+    tags     many-to-many state/type labels (#status/active, #type/runbook)
+    links    relationships between specific things
+ 
+  Tag pane (core plugin) lists all tags with counts.
+ 
+ 
+-------------------------------------------------------------------------------
+7. SEARCH QUERY SYNTAX
+-------------------------------------------------------------------------------
+ 
+  Ctrl+Shift+F opens global search.
+ 
+    word1 word2         both must appear (implicit AND)
+    "exact phrase"      literal phrase
+    word1 OR word2      either
+    -word               exclude
+    (a OR b) -c         grouping
+ 
+    file:runbook        filename contains
+    path:projects/nas   path contains
+    content:acl         body text only
+    tag:#lab            has tag
+    line:(nfs acl)      both terms on the SAME line
+    block:(a b)         both terms in the same block
+    section:(a b)       both terms under the same heading
+    task:(deploy)       matches any task line
+    task-todo:(deploy)  unchecked tasks only
+    task-done:(deploy)  checked tasks only
+ 
+    match-case:Foo      force case sensitivity
+    ignore-case:foo     force case insensitivity
+    /^\d{4}-\d{2}/      regex, wrapped in slashes
+ 
+  Embed a live search in a note:
+    ```query
+    tag:#lab -path:archive
+    ```
+ 
+ 
+-------------------------------------------------------------------------------
+8. HOTKEYS (defaults; Cmd on macOS)
+-------------------------------------------------------------------------------
+ 
+  NAVIGATION
+    Ctrl+O            Quick switcher (open note by name)
+    Ctrl+P            Command palette   <- learn this one first
+    Ctrl+Shift+F      Search all files
+    Ctrl+F            Search current file
+    Ctrl+G            Graph view
+    Alt+Left/Right    Back / Forward
+    Ctrl+Tab          Cycle tabs
+    Ctrl+W            Close tab
+    Ctrl+Shift+T      Reopen closed tab
+    Ctrl+Click link   Open in new tab/pane
+    Ctrl+,            Settings
+ 
+  EDITING
+    Ctrl+B / Ctrl+I   Bold / Italic
+    Ctrl+K            Insert link
+    Ctrl+E            Toggle reading / editing view
+    Ctrl+Enter        Toggle checkbox
+    Ctrl+/            Toggle comment (%% %%)
+    Ctrl+Shift+V      Paste as plain text
+    Ctrl+D            Delete current line (varies by version)
+    F2                Rename file
+    Ctrl+N            New note
+ 
+  Everything is remappable: Settings > Hotkeys. Filter by "unassigned"
+  to find commands with no binding.
+ 
+ 
+-------------------------------------------------------------------------------
+9. TEMPLATES + DAILY NOTES
+-------------------------------------------------------------------------------
+ 
+  Core Templates plugin. Set a template folder in settings, then insert
+  with Ctrl+P > "Insert template".
+ 
+  Core template variables:
+    {{title}}                   note filename
+    {{date}}                    current date, default format
+    {{time}}                    current time
+    {{date:YYYY-MM-DD}}         custom format (Moment.js tokens)
+    {{time:HH:mm}}
+ 
+  Daily Notes plugin: set date format, folder, and template. Bind
+  "Open today's note" to a hotkey.
+ 
+  For anything more (prompts, JS, file moves, dynamic frontmatter) use
+  the Templater community plugin:
+    <% tp.date.now("YYYY-MM-DD") %>
+    <% tp.file.title %>
+    <% tp.system.prompt("Project name?") %>
+ 
+ 
+-------------------------------------------------------------------------------
+10. CORE PLUGINS WORTH TURNING ON
+-------------------------------------------------------------------------------
+ 
+  Backlinks             what links here
+  Outgoing links        what this links to
+  Outline               heading TOC of current note
+  Tag pane              all tags + counts
+  Templates             see above
+  Daily notes           journaling / log spine
+  Command palette       already on, but confirm
+  Quick switcher        already on
+  Canvas                infinite whiteboard, saved as .canvas (JSON)
+  Bases                 database-style table/card views over notes
+                        (newer core plugin; check your version)
+  Sync / Publish        paid Obsidian services, optional
+  Page preview          hover a link to peek at the note
+  Note composer         split/merge notes, extract selection to new note
+  Unique note creator   timestamp-prefixed zettel-style notes
+ 
+ 
+-------------------------------------------------------------------------------
+11. COMMUNITY PLUGINS WORTH INSTALLING
+-------------------------------------------------------------------------------
+ 
+  Dataview             query your vault like a database (see below)
+  Templater            real templating with JS + system prompts
+  Obsidian Git         auto-commit and push the vault on a timer
+  Excalidraw           full drawing tool, files live in the vault
+  Advanced Tables      makes markdown tables tolerable to edit
+  QuickAdd             capture macros, one-key note creation
+  Periodic Notes       weekly/monthly/quarterly beyond daily
+  Kanban               board view backed by a markdown file
+  Omnisearch           fuzzy full-text search, better ranking
+  Style Settings       knobs for themes without writing CSS
+  Homepage             open a specific note on launch
+ 
+  Install: Settings > Community plugins > Browse. Turn off Restricted
+  Mode first.
+ 
+ 
+-------------------------------------------------------------------------------
+12. DATAVIEW QUICK REFERENCE
+-------------------------------------------------------------------------------
+ 
+  Table:
+    ```dataview
+    TABLE status, file.mtime AS "Modified"
+    FROM #lab AND -"archive"
+    WHERE status = "active"
+    SORT file.mtime DESC
+    LIMIT 20
+    ```
+ 
+  List:
+    ```dataview
+    LIST FROM "projects" WHERE contains(tags, "poc")
+    ```
+ 
+  Tasks:
+    ```dataview
+    TASK FROM #project WHERE !completed
+    ```
+ 
+  Inline field syntax in a note body:
+    status:: active
+    owner:: [[Steve]]
+ 
+  Inline query:
+    `= this.file.name`
+    `= date(today) - this.date`
+ 
+  Sources for FROM:
+    #tag          "folder"        [[note]]        outgoing([[note]])
+    Combine with AND / OR / -
+ 
+ 
+-------------------------------------------------------------------------------
+13. VAULT ON DISK / GIT
+-------------------------------------------------------------------------------
+ 
+  <vault>/
+    .obsidian/
+      app.json           editor + general settings
+      appearance.json    theme, font
+      hotkeys.json       your keybinds
+      core-plugins.json
+      community-plugins.json
+      workspace.json     open panes/tabs -- churns constantly
+      plugins/           installed plugin code
+      themes/
+      snippets/          your own CSS, toggled in Settings > Appearance
+    Attachments/         default attachment folder (configurable)
+    *.md
+ 
+  Suggested .gitignore:
+    .obsidian/workspace.json
+    .obsidian/workspace-mobile.json
+    .obsidian/cache
+    .trash/
+    .DS_Store
+ 
+  Commit .obsidian/ minus workspace files if you want settings synced
+  across machines. Exclude the whole .obsidian/ if you want each device
+  independent.
+ 
+  Because it is all plain files, this works fine:
+    rg -n "cloudpools" ~/vault
+    fd -e md . ~/vault | wc -l
+    git -C ~/vault log --oneline -- "Runbooks/XCP.md"
+ 
+ 
+-------------------------------------------------------------------------------
+14. URI SCHEME
+-------------------------------------------------------------------------------
+ 
+  obsidian://open?vault=MyVault&file=Folder%2FNote
+  obsidian://new?vault=MyVault&name=Scratch&content=hello
+  obsidian://search?vault=MyVault&query=tag%3A%23lab
+ 
+  Useful for launcher scripts, Alfred/Raycast, or shell aliases.
+ 
+ 
+-------------------------------------------------------------------------------
+15. GOTCHAS
+-------------------------------------------------------------------------------
+ 
+  * Renaming a note updates every [[wikilink]] to it automatically.
+    Renaming the FILE outside Obsidian does not. Rename inside the app,
+    or fix links yourself.
+ 
+  * Moving a file changes markdown-style links if "Use [[Wikilinks]]"
+    is off. Wikilinks are path-independent by default, which is usually
+    what you want. Settings > Files and links.
+ 
+  * "New link format" setting: shortest path / relative / absolute.
+    Shortest path breaks if two notes share a filename in different
+    folders. Absolute is safest for large vaults.
+ 
+  * Frontmatter must be at line 1. A blank line above it silently
+    breaks it into a plain horizontal rule.
+ 
+  * Tags in YAML: use tags:, not tag:. Both forms below work.
+        tags: [a, b]
+        tags:
+          - a
+          - b
+ 
+  * Attachments default to the vault root. Set a dedicated folder early
+    (Settings > Files and links > Default location for new attachments)
+    or you will be sorting 400 pasted PNGs later.
+ 
+  * Live Preview hides syntax at the cursor line only. If something
+    renders wrong, drop to Source mode (Ctrl+P > "Toggle source mode")
+    to see the raw text.
+ 
+  * Sync: Obsidian Sync is paid and handles conflicts well. iCloud and
+    Dropbox work but can corrupt on concurrent edits. Git is free and
+    explicit but is a manual conflict resolver on mobile.
+ 
+===============================================================================
