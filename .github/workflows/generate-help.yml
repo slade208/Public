@@ -1,0 +1,27 @@
+name: Regenerate help index
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  help:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate help
+        run: bash make-help.sh
+
+      - name: Commit if changed
+        run: |
+          if ! git diff --quiet help; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add help
+            git commit -m "regenerate help index [skip ci]"
+            git push
+          fi

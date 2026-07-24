@@ -1,3 +1,5 @@
+## Cloudian license stuff
+
 Let’s assume you tried to install HS8 with a bad license. What will happen here is that the install will go through but fail at starting up hyperstore. 
 You can also check the logs to confirm this.
 

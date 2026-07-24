@@ -1,15 +1,21 @@
 ## This is the list of cheats that are accessible via curl operations.dev/<name>
 
-operations.dev/awscli                         - Awscli commands related to S3/Hyperstore
-operations.dev/config                         - Commands to look at configuration stuff
-operations.dev/custom                         - Commands for customization
+operations.dev/awscli                         - Sample AWS cli IAM call note the port is needed
+operations.dev/cce                            - Cloudian CCE class lab notes
+operations.dev/cfirewall                      - These are my hints for customizing cloudian firewall
+operations.dev/config                         - Hyperstore commands to get an idea of the config
+operations.dev/custom                         - Customization hints below
 operations.dev/git                            - github command line notes
-operations.dev/hsctl                          - Hyperstore common hsctl commands
-operations.dev/hsh                            - HSH 
+operations.dev/hsctl                          - HSCTL quick reference
+operations.dev/hsh                            - Get hsh status
+operations.dev/iam_sourceip_example_cloudian  - IAM policy to only allow put object from 192.168.0.90
 operations.dev/license                        - Cloudian license stuff
-operations.dev/logs                           - Log descriptions
-operations.dev/osmigrate                      - Cloudian Cent to Rocky migration
-operations.dev/repair                         - Repair notes
-operations.dev/upgrade                        - Hyperstore upgrade tips
-operations.dev/vmware                         - vmware stuff
-operations.dev/powerscale                     - Dell Powerscale OneFS 
+operations.dev/logs                           - Kinda general hints for logs
+operations.dev/obsidian                       - Obsidian cheat sheet
+operations.dev/osmigrate                      - Cloudian Centos to Rocky README
+operations.dev/packer                         - Command to run packer
+operations.dev/powerscale                     - Dell Powerscale OneFS
+operations.dev/powershell                     - Fix this stupid windows ssh Corrupted MAC on input
+operations.dev/repair                         - Hyperstore repair notes
+operations.dev/upgrade                        - Disables most auto repair things
+operations.dev/vmware                         - Upgrade vcenter on cli

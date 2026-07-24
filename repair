@@ -1,3 +1,5 @@
+## Hyperstore repair notes
+
 - The maximum time for which proactive repair jobs can be queued for a node that is unavailable is 4 hours by default, and is configurable
 - Also configurable is the regular interval at which each node in the cluster checks whether there are any queued proactive repair jobs for itself, and executes those jobs if there are any (default = 1 hour)
 
