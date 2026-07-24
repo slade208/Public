@@ -1,22 +1,32 @@
-name: Regenerate help index
+name: Build and deploy site
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  help:
+  build-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Regenerate help
+      - name: Regenerate help index
         run: bash make-help.sh
 
-      - name: Commit if changed
+      - name: Commit help if changed
         run: |
           if ! git diff --quiet help; then
             git config user.name "github-actions[bot]"
@@ -25,3 +35,20 @@ jobs:
             git commit -m "regenerate help index [skip ci]"
             git push
           fi
+
+      - name: Build colorized site
+        run: |
+          mkdir -p _site
+          for f in *; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              *.html|CNAME|README.md) cp "$f" _site/ ;;
+              make-help.sh|colorize.sh) ;;
+              *) bash colorize.sh "$f" > "_site/$f" ;;
+            esac
+          done
+
+      - uses: actions/upload-pages-artifact@v3
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
