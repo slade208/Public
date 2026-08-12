@@ -1,0 +1,50 @@
+## Doppler secrets - install, auth, and running things with them
+# Every Jarvis service runs under `doppler run --`, so nothing keeps secrets
+# in files or env exports. Add this to a box only when the work there actually
+# needs homelab credentials - joining the shared knowledge tree does not.
+# Context first: curl operations.dev/claude   Secrets second: this page.
+
+## Install
+# Debian / Ubuntu
+curl -sLf --retry 3 'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' | sudo gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" | sudo tee /etc/apt/sources.list.d/doppler-cli.list
+sudo apt-get update && sudo apt-get install -y doppler
+
+# RHEL / Rocky / Alma / Fedora
+sudo rpm --import 'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key'
+curl -sLf --retry 3 'https://packages.doppler.com/public/cli/config.rpm.txt' | sudo tee /etc/yum.repos.d/doppler-cli.repo
+sudo dnf install -y doppler
+
+# macOS / Windows
+brew install dopplerhq/cli/doppler
+winget install doppler.doppler
+
+# Anywhere (no root, or a distro the repos don't cover)
+curl -Ls https://cli.doppler.com/install.sh | sh
+
+## Log in and point at a project
+doppler login
+doppler setup -p jarvis -c dev
+# per-directory: doppler setup writes .doppler.yaml, so each project dir can
+# target its own project/config and you never pass flags again
+
+## Use it
+doppler run -- <command>          # injects secrets as env vars for that command only
+doppler secrets                   # list names (values need --plain per secret)
+doppler secrets get NAME --plain
+doppler secrets set NAME=value
+
+## Headless / CI / a service that must start without a human
+# Make a SERVICE TOKEN in the Doppler dashboard (read-only, scoped to one config)
+export DOPPLER_TOKEN=dp.st.dev.xxxx
+doppler run -- <command>          # no login needed when DOPPLER_TOKEN is set
+
+## Gotcha - upgrading on the desktop
+# Every standing Jarvis service runs under `doppler run`, so ~7-9 doppler.exe
+# processes hold the binary open and winget's uninstall step dies with
+# 'Access is denied' / 0x8a150003. Stop the standing tasks first, upgrade,
+# then start them again. The failed attempt is harmless - the old version
+# keeps working.
+
+## Full docs
+# docs.doppler.com/docs/cli

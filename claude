@@ -17,6 +17,12 @@ irm operations.dev/claude-win-join.ps1 | iex
 curl operations.dev/claude-linux
 curl operations.dev/claude-windows
 
+## If this box also needs to DO homelab work
+# Joining gives the session context, not credentials - nothing in the tree is
+# a secret. When the work needs real homelab access (running a playbook,
+# touching an API), add secrets separately:
+curl operations.dev/doppler
+
 ## Already joined - the day-to-day
 # Nothing. The hooks pull at session start and push at the end.
 # Browse the facts in Obsidian: Jarvis/team-memory/internal (MEMORY.md is the index)

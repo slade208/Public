@@ -6,6 +6,7 @@ operations.dev/cfirewall                      - These are my hints for customizi
 operations.dev/claude                         - Claude Code + shared knowledge: start here
 operations.dev/config                         - Hyperstore commands to get an idea of the config
 operations.dev/custom                         - Customization hints below
+operations.dev/doppler                        - Doppler secrets - install, auth, and running things with them
 operations.dev/git                            - github command line notes
 operations.dev/hsctl                          - HSCTL quick reference
 operations.dev/hsh                            - Get hsh status
