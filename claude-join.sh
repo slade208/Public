@@ -16,7 +16,8 @@ set -euo pipefail
 TREE="${AGENT_NOTES_DIR:-$HOME/agent-notes}"
 REPO="${AGENT_NOTES_REPO:-https://github.com/slade208/agent-notes.git}"
 SEAT="${AGENT_NOTES_SEAT:-$(hostname)}"
-NODE_MAJOR_WANTED=20
+NODE_MAJOR_WANTED=20     # what we install when the distro's is too old
+NODE_MAJOR_MIN=18        # what Claude Code actually requires
 
 say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -70,25 +71,46 @@ pkg_install() {
   esac
 }
 
-install_node() {
-  note "installing Node ${NODE_MAJOR_WANTED} (distro packages are usually too old for Claude Code)"
+node_ok() {
+  have node || return 1
+  [ "$(node -v | sed 's/^v\([0-9]*\).*/\1/')" -ge "$NODE_MAJOR_MIN" ] 2>/dev/null
+}
+
+ensure_node() {
+  # Empirical, not a version table. Distro node ranges from ancient (Ubuntu
+  # 22.04 ships v12) to perfectly fine (Ubuntu 24.04, Fedora, Rocky 10), and
+  # which is which changes every release. So: try the distro, measure what we
+  # actually got, and reach for NodeSource only if it is genuinely too old.
+  node_ok && { note "node $(node -v) already present"; return 0; }
+
+  note "installing the distro's nodejs"
+  pkg_install nodejs 2>/dev/null || pkg_install node 2>/dev/null || true
+  node_ok && { note "distro node $(node -v) is new enough"; return 0; }
+
+  note "distro node is $(node -v 2>/dev/null || echo absent) - need ${NODE_MAJOR_MIN}+, adding NodeSource ${NODE_MAJOR_WANTED}"
   case "$PKG" in
     apt)
       curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR_WANTED}.x" | $SUDO -E bash -
       pkg_install nodejs ;;
     dnf|yum)
+      # A module stream owns nodejs on RHEL 8/9 and NodeSource conflicts with
+      # it until reset. Harmless on releases that have no module streams.
+      $SUDO "$PKG" -y module reset nodejs >/dev/null 2>&1 || true
       curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR_WANTED}.x" | $SUDO bash -
       pkg_install nodejs ;;
-    *)
-      pkg_install node || pkg_install nodejs ;;
   esac
+
+  node_ok || die "could not reach node ${NODE_MAJOR_MIN}+ (got: $(node -v 2>/dev/null || echo none)).
+      NodeSource may not publish for this release yet. Install node ${NODE_MAJOR_MIN}+ by
+      hand (nodejs.org, nvm, or a distro module stream) and re-run - the rest will skip."
 }
 
+
 install_gh() {
-  # gh is absent from RHEL-family default repos and inconsistent across Ubuntu
-  # releases, so: try the distro first, add GitHub's own repo only if needed.
-  if pkg_install gh 2>/dev/null; then return 0; fi
-  note "gh not in the distro repos — adding GitHub's"
+  # gh is missing from RHEL-family defaults and inconsistent across Ubuntu
+  # releases, so try the distro first and add GitHub's repo only if needed.
+  if pkg_install gh 2>/dev/null && have gh; then return 0; fi
+  note "gh not in the distro repos - adding GitHub's"
   case "$PKG" in
     apt)
       $SUDO mkdir -p -m 755 /etc/apt/keyrings
@@ -98,32 +120,24 @@ install_gh() {
       echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
       pkg_install gh ;;
-    dnf)
-      $SUDO dnf install -y 'dnf-command(config-manager)' || true
-      $SUDO dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-      pkg_install gh ;;
-    yum)
-      $SUDO yum install -y yum-utils || true
-      $SUDO yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+    dnf|yum)
+      # Write the .repo file directly instead of using config-manager: dnf5
+      # (Fedora 41+, likely Rocky 10) renamed --add-repo to addrepo, and the
+      # plugin is not always installed. Dropping the file works on all of them.
+      curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo \
+        | $SUDO tee /etc/yum.repos.d/gh-cli.repo >/dev/null
       pkg_install gh ;;
     *)
       die "install the GitHub CLI by hand (cli.github.com), then re-run" ;;
   esac
 }
 
+
 # ---------------------------------------------------------------- packages
 say "Checking prerequisites"
 have git || { note "installing git"; pkg_install git; }
 have gh  || { note "installing the GitHub CLI"; install_gh; }
-if have node; then
-  NODE_MAJOR=$(node -v | sed 's/^v\([0-9]*\).*/\1/')
-  if [ "${NODE_MAJOR:-0}" -lt 18 ]; then
-    note "node $(node -v) is too old (need 18+)"
-    install_node
-  fi
-else
-  install_node
-fi
+ensure_node
 note "git $(git --version | awk '{print $3}') · gh $(gh --version | head -1 | awk '{print $3}') · node $(node -v)"
 
 # ------------------------------------------------------------- claude code
