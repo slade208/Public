@@ -1,0 +1,58 @@
+## Ubuntu from nothing to a joined Claude Code session
+
+## The one-liner
+bash -c "$(curl -fsSL operations.dev/claude-join.sh)"
+# Installs what's missing, pauses for the logins, clones + links the tree,
+# writes the hooks. Re-runnable; it skips whatever is already done.
+# Use bash -c "$(...)" NOT curl | bash - piping breaks the interactive logins,
+# because the script itself would be occupying stdin.
+
+## ---------- or do it by hand ----------
+
+## 1. Node 20, git, GitHub CLI
+# Ubuntu's apt node is too old for Claude Code (needs 18+)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs git gh
+
+## 2. Claude Code
+npm install -g @anthropic-ai/claude-code
+
+## 3. Log in - both need a browser or device code
+gh auth login
+gh auth setup-git
+claude
+# (log in, then exit claude)
+
+## 4. Make the project folder and let Claude Code register it
+mkdir -p ~/projects/myproject && cd ~/projects/myproject
+claude
+# start it, then exit - this creates the state dir the join step links into
+
+## 5. Clone the knowledge tree and join
+git clone https://github.com/slade208/agent-notes ~/agent-notes
+~/agent-notes/tooling/join.sh ~/projects/myproject my-seat-name
+
+## 6. Hooks - in <project>/.claude/settings.json
+# SessionStart pulls the tree, Stop commits and pushes what you learned
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "shell": "bash",
+      "command": "bash $HOME/agent-notes/tooling/hooks/session-start.sh" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "shell": "bash",
+      "command": "bash $HOME/agent-notes/tooling/hooks/stop.sh" }] }]
+  }
+}
+# and: export AGENT_NOTES_SEAT=my-seat-name
+
+## 7. Prove it
+ls -l ~/.claude/projects/*/memory     # must be a symlink, not a directory
+# then start claude and ask: "what do you remember?"
+# joined = a grouped list of facts; empty = the link didn't take
+
+## Throwaway box - clean up when done
+rm -rf ~/agent-notes ~/.claude/projects/*/memory
+# the tree lives on GitHub and the desktop; nothing is lost
+
+## Full docs when the quick version isn't enough
+# github.com/slade208/jarvis-agent  ->  docs/runbooks/join-a-seat-to-shared-knowledge.md
+# github.com/slade208/agent-notes   ->  JOINING.md  (troubleshooting lives there)

@@ -12,7 +12,7 @@ SKIP=" CNAME README.md help make-help.sh "
   for f in *; do
     [ -f "$f" ] || continue
     case "$SKIP" in *" $f "*) continue ;; esac
-    case "$f" in *.html|*.sh) continue ;; esac
+    case "$f" in *.html|*.sh|*.ps1) continue ;; esac
     desc=$(head -1 "$f" | sed -E 's/^#+[[:space:]]*//; s/[[:space:]#]+$//')
     printf 'operations.dev/%-31s- %s\n' "$f" "$desc"
   done

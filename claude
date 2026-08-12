@@ -1,0 +1,32 @@
+## Claude Code + shared knowledge: start here
+# Every agent (Jarvis, Friday, Veronica) and every joined Claude Code seat
+# reads and writes ONE knowledge tree. Joining a new box is one command.
+# Not joining is how you get a clean slate - that's a feature, not a gap.
+
+## Fastest path - new box, nothing installed
+# Linux / macOS
+bash -c "$(curl -fsSL operations.dev/claude-join.sh)"
+
+# Windows (PowerShell)
+irm operations.dev/claude-win-join.ps1 | iex
+
+# Both install what's missing, pause for the two logins that need a browser,
+# then clone the tree, link it and write the session hooks.
+
+## Prefer to see the steps yourself
+curl operations.dev/claude-linux
+curl operations.dev/claude-windows
+
+## Already joined - the day-to-day
+# Nothing. The hooks pull at session start and push at the end.
+# Browse the facts in Obsidian: Jarvis/team-memory/internal (MEMORY.md is the index)
+
+## Did it work
+# Start claude in the project and ask: "what do you remember?"
+# A joined seat lists facts grouped by topic. "I have no memory" or an empty
+# answer means the folder isn't linked - see troubleshooting in the runbook.
+
+## Full docs when the quick version isn't enough
+# github.com/slade208/jarvis-agent  ->  docs/runbooks/join-a-seat-to-shared-knowledge.md
+# github.com/slade208/agent-notes   ->  JOINING.md  (ships inside the tree itself)
+# Design + why:                          docs/adr/0014-unified-knowledge-tree.md

@@ -42,8 +42,10 @@ jobs:
           for f in *; do
             [ -f "$f" ] || continue
             case "$f" in
-              *.html|CNAME|README.md) cp "$f" _site/ ;;
               make-help.sh|colorize.sh) ;;
+              # Scripts must ship byte-for-byte: colorize.sh would inject ANSI
+              # escapes and the shell would choke on the very first line.
+              *.html|CNAME|README.md|*.sh|*.ps1) cp "$f" _site/ ;;
               *) bash colorize.sh "$f" > "_site/$f" ;;
             esac
           done
