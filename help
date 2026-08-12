@@ -4,8 +4,6 @@ operations.dev/awscli                         - Sample AWS cli IAM call note the
 operations.dev/cce                            - Cloudian CCE class lab notes
 operations.dev/cfirewall                      - These are my hints for customizing cloudian firewall
 operations.dev/claude                         - Claude Code + shared knowledge: start here
-operations.dev/claude-linux                   - Ubuntu from nothing to a joined Claude Code session
-operations.dev/claude-windows                 - Windows from nothing to a joined Claude Code session
 operations.dev/config                         - Hyperstore commands to get an idea of the config
 operations.dev/custom                         - Customization hints below
 operations.dev/git                            - github command line notes
