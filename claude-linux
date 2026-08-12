@@ -1,18 +1,30 @@
-## Ubuntu from nothing to a joined Claude Code session
+## Linux from nothing to a joined Claude Code session
 
 ## The one-liner
 bash -c "$(curl -fsSL operations.dev/claude-join.sh)"
-# Installs what's missing, pauses for the logins, clones + links the tree,
-# writes the hooks. Re-runnable; it skips whatever is already done.
+# Reads /etc/os-release, picks apt / dnf / yum / brew, installs what's missing,
+# pauses for the logins, clones + links the tree, writes the hooks.
+# Debian/Ubuntu, RHEL/Rocky/Alma/Fedora and macOS. Re-runnable - it skips
+# whatever is already done.
 # Use bash -c "$(...)" NOT curl | bash - piping breaks the interactive logins,
 # because the script itself would be occupying stdin.
 
 ## ---------- or do it by hand ----------
 
 ## 1. Node 20, git, GitHub CLI
-# Ubuntu's apt node is too old for Claude Code (needs 18+)
+# distro node is usually too old for Claude Code (needs 18+), so use NodeSource
+
+# Debian / Ubuntu
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs git gh
+
+# RHEL / Rocky / Alma / Fedora
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo dnf install -y nodejs git
+# gh is not in the RHEL-family default repos - add GitHub's:
+sudo dnf install -y 'dnf-command(config-manager)'
+sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+sudo dnf install -y gh
 
 ## 2. Claude Code
 npm install -g @anthropic-ai/claude-code

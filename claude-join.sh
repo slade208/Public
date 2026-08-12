@@ -8,6 +8,7 @@
 # The bash -c "$(...)" form passes the script as an argument and leaves your
 # terminal connected — same reason Homebrew's installer is written that way.
 #
+# Distro-aware: works on Debian/Ubuntu, RHEL/Rocky/Alma/Fedora, and macOS.
 # Idempotent: every step checks first, so re-running after a failure is safe.
 # Full docs: github.com/slade208/jarvis-agent docs/runbooks/join-a-seat-to-shared-knowledge.md
 set -euo pipefail
@@ -15,6 +16,7 @@ set -euo pipefail
 TREE="${AGENT_NOTES_DIR:-$HOME/agent-notes}"
 REPO="${AGENT_NOTES_REPO:-https://github.com/slade208/agent-notes.git}"
 SEAT="${AGENT_NOTES_SEAT:-$(hostname)}"
+NODE_MAJOR_WANTED=20
 
 say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -24,45 +26,114 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # Prompts must come from the terminal, not from whatever stdin happens to be.
 ask() { local p="$1" d="${2:-}" a; read -r -p "$p" a </dev/tty || a=""; printf '%s' "${a:-$d}"; }
 
-[ "$(uname -s)" = "Linux" ] || [ "$(uname -s)" = "Darwin" ] || die "this script is for Linux/macOS; Windows: irm operations.dev/claude-win-join.ps1 | iex"
+# Root already; otherwise sudo. A minimal container may have neither.
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then
+  have sudo || die "not root and no sudo — install git, gh and node 18+ by hand, then re-run"
+  SUDO="sudo"
+fi
+
+# ------------------------------------------------------------ identify the OS
+# NOT `uname` (that's the kernel — every distro says "Linux") and NOT
+# /etc/issue (an editable login banner, frequently blank). /etc/os-release is
+# the systemd standard and is present on every distro this script targets.
+OS="$(uname -s)"
+DISTRO="unknown"; PRETTY="$OS"
+if [ -r /etc/os-release ]; then
+  # shellcheck disable=SC1091
+  . /etc/os-release
+  DISTRO="${ID:-unknown}"
+  PRETTY="${PRETTY_NAME:-$DISTRO}"
+  LIKE="${ID_LIKE:-}"
+fi
+
+# What we actually need is the package manager, not the distro name.
+PKG=""
+if   have apt-get; then PKG=apt
+elif have dnf;     then PKG=dnf
+elif have yum;     then PKG=yum
+elif have brew;    then PKG=brew
+elif have zypper;  then PKG=zypper
+fi
+
+say "System"
+note "$PRETTY  (package manager: ${PKG:-none found})"
+
+pkg_install() {
+  case "$PKG" in
+    apt)    $SUDO apt-get update -qq && $SUDO apt-get install -y "$@" ;;
+    dnf)    $SUDO dnf install -y "$@" ;;
+    yum)    $SUDO yum install -y "$@" ;;
+    zypper) $SUDO zypper --non-interactive install "$@" ;;
+    brew)   brew install "$@" ;;
+    *)      die "no supported package manager — install $* by hand, then re-run" ;;
+  esac
+}
+
+install_node() {
+  note "installing Node ${NODE_MAJOR_WANTED} (distro packages are usually too old for Claude Code)"
+  case "$PKG" in
+    apt)
+      curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR_WANTED}.x" | $SUDO -E bash -
+      pkg_install nodejs ;;
+    dnf|yum)
+      curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR_WANTED}.x" | $SUDO bash -
+      pkg_install nodejs ;;
+    *)
+      pkg_install node || pkg_install nodejs ;;
+  esac
+}
+
+install_gh() {
+  # gh is absent from RHEL-family default repos and inconsistent across Ubuntu
+  # releases, so: try the distro first, add GitHub's own repo only if needed.
+  if pkg_install gh 2>/dev/null; then return 0; fi
+  note "gh not in the distro repos — adding GitHub's"
+  case "$PKG" in
+    apt)
+      $SUDO mkdir -p -m 755 /etc/apt/keyrings
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | $SUDO tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+      $SUDO chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+      pkg_install gh ;;
+    dnf)
+      $SUDO dnf install -y 'dnf-command(config-manager)' || true
+      $SUDO dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+      pkg_install gh ;;
+    yum)
+      $SUDO yum install -y yum-utils || true
+      $SUDO yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+      pkg_install gh ;;
+    *)
+      die "install the GitHub CLI by hand (cli.github.com), then re-run" ;;
+  esac
+}
 
 # ---------------------------------------------------------------- packages
 say "Checking prerequisites"
-NEED=""
-have git || NEED="$NEED git"
-have gh  || NEED="$NEED gh"
+have git || { note "installing git"; pkg_install git; }
+have gh  || { note "installing the GitHub CLI"; install_gh; }
 if have node; then
   NODE_MAJOR=$(node -v | sed 's/^v\([0-9]*\).*/\1/')
-  [ "${NODE_MAJOR:-0}" -ge 18 ] || NEED="$NEED nodejs"
-else
-  NEED="$NEED nodejs"
-fi
-
-if [ -n "$NEED" ]; then
-  note "missing:$NEED"
-  if have apt-get; then
-    case "$NEED" in *nodejs*)
-      note "adding the NodeSource 20 repo (Ubuntu's own node is too old for Claude Code)"
-      curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - ;;
-    esac
-    # shellcheck disable=SC2086
-    sudo apt-get install -y $NEED
-  elif have brew; then
-    # shellcheck disable=SC2086
-    brew install $NEED
-  else
-    die "no apt-get or brew here — install:$NEED by hand, then re-run"
+  if [ "${NODE_MAJOR:-0}" -lt 18 ]; then
+    note "node $(node -v) is too old (need 18+)"
+    install_node
   fi
 else
-  note "git, gh and node 18+ all present"
+  install_node
 fi
+note "git $(git --version | awk '{print $3}') · gh $(gh --version | head -1 | awk '{print $3}') · node $(node -v)"
 
 # ------------------------------------------------------------- claude code
 say "Claude Code"
 if have claude; then
-  note "already installed ($(claude --version 2>/dev/null | head -1))"
+  note "already installed"
 else
-  npm install -g @anthropic-ai/claude-code
+  # npm's global prefix is root-owned on distro node; keep the install unprivileged.
+  npm install -g @anthropic-ai/claude-code 2>/dev/null \
+    || $SUDO npm install -g @anthropic-ai/claude-code
 fi
 
 # -------------------------------------------------------------------- auth
@@ -101,8 +172,10 @@ AGENT_NOTES_DIR="$TREE" bash "$TREE/tooling/join.sh" "$PROJECT" "$SEAT"
 say "Session hooks"
 SETTINGS="$PROJECT/.claude/settings.json"
 mkdir -p "$(dirname "$SETTINGS")"
-if have python3; then
-  SETTINGS="$SETTINGS" TREE="$TREE" python3 - <<'PY'
+PY_BIN=""
+have python3 && PY_BIN=python3 || { have python && PY_BIN=python; }
+if [ -n "$PY_BIN" ]; then
+  SETTINGS="$SETTINGS" TREE="$TREE" "$PY_BIN" - <<'PY'
 import json, os, pathlib
 p = pathlib.Path(os.environ["SETTINGS"]); tree = os.environ["TREE"]
 cfg = {}
@@ -125,7 +198,7 @@ for event, script in (("SessionStart", "session-start.sh"), ("Stop", "stop.sh"))
 p.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
 PY
 else
-  note "no python3 — add the hooks by hand, see: curl operations.dev/claude-linux"
+  note "no python found — add the hooks by hand, see: curl operations.dev/claude-linux"
 fi
 
 # ------------------------------------------------------------------ finish

@@ -4,7 +4,7 @@
 # Not joining is how you get a clean slate - that's a feature, not a gap.
 
 ## Fastest path - new box, nothing installed
-# Linux / macOS
+# Linux / macOS - detects the distro and uses apt / dnf / yum / brew for you
 bash -c "$(curl -fsSL operations.dev/claude-join.sh)"
 
 # Windows (PowerShell)
