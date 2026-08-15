@@ -11,6 +11,7 @@ operations.dev/git                            - github command line notes
 operations.dev/hsctl                          - HSCTL quick reference
 operations.dev/hsh                            - Get hsh status
 operations.dev/iam_sourceip_example_cloudian  - IAM policy to only allow put object from 192.168.0.90
+operations.dev/ip                             - What is my IP - WAN, LAN, and which network am I on
 operations.dev/license                        - Cloudian license stuff
 operations.dev/logs                           - Kinda general hints for logs
 operations.dev/obsidian                       - Obsidian cheat sheet

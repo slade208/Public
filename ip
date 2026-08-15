@@ -1,0 +1,46 @@
+## What is my IP - WAN, LAN, and which network am I on
+# For when you change networks and need the WAN address for an allowlist:
+# Cloudflare Access, a Cloudian IAM sourceip policy, an SSH firewall rule.
+# The policy that consumes this: curl operations.dev/iam_sourceip_example_cloudian
+
+## WAN IP - the one-liner
+curl -s4 ipinfo.io/ip; echo
+
+# Every extra character earns its place, and all of them only bite on the road:
+#   -4      on a dual-stack network (hotel, conference, phone tether) the bare
+#           command can hand back the IPv6 address, which is never what an
+#           allowlist wants. At home this changes nothing - that is the trap.
+#   -s      drops the progress meter when the output is piped or captured.
+#   ; echo  ipinfo.io sends NO trailing newline, so without it the next shell
+#           prompt starts on the same line as the address.
+
+## WAN IP - PowerShell
+irm ipinfo.io/ip
+
+# NOT `curl ipinfo.io/ip` on Windows PowerShell 5.1 (winlab0, winlab1, any
+# Server 2019 box): there `curl` is an ALIAS for Invoke-WebRequest and prints a
+# response object instead of the address. pwsh 7 dropped the alias, so there
+# `curl` is the real curl.exe and behaves like Linux. `irm` is right on both.
+curl.exe -s4 ipinfo.io/ip
+
+## Which network am I on
+curl -s4 ipinfo.io                              # JSON: city, region, org, ASN
+curl -s4 https://1.1.1.1/cdn-cgi/trace | grep -E '^(ip|loc|colo)='
+
+# colo= is the Cloudflare edge serving you (LAS, SJC, DFW...) - a quick read on
+# where you are actually egressing, which is the useful signal on VPN or tether.
+
+## When ipinfo is blocked or rate-limited
+# Captive portals and corporate networks are where this happens, and are exactly
+# when you need the answer. Each of these returns the bare address:
+curl -s4 ifconfig.me/ip; echo
+curl -s4 api.ipify.org; echo
+curl -s4 icanhazip.com                          # these two already newline
+curl -s4 checkip.amazonaws.com
+
+## LAN IP - the other "what is my IP"
+ip -4 -brief addr                               # Linux, every interface at once
+ip route get 1.1.1.1                            # which source IP actually egresses
+ipconfig                                        # Windows
+Get-NetIPAddress -AddressFamily IPv4            # PowerShell
+ifconfig | grep 'inet '                         # macOS / BSD
