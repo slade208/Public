@@ -21,7 +21,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      # checkout v6+ persists the token to a file under $RUNNER_TEMP rather than
+      # .git/config; the `git push` below keeps working unchanged.
+      - uses: actions/checkout@v7
 
       - name: Regenerate help index
         run: bash make-help.sh
@@ -50,7 +52,10 @@ jobs:
             esac
           done
 
-      - uses: actions/upload-pages-artifact@v3
+      # upload-pages-artifact v4+ drops dotfiles from the artifact. Harmless
+      # here: the build loop above globs `*`, which never matched them anyway.
+      # If a dotfile is ever needed in _site, add `include-hidden-files: true`.
+      - uses: actions/upload-pages-artifact@v5
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
