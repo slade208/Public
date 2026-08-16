@@ -49,9 +49,14 @@ bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
 
 ## Evict a host (lost laptop, compromised or decommissioned box - run ANYWHERE)
 # Revoking its deploy key instantly cuts that host's read+push; all other
-# hosts are untouched. From any gh-authed seat:
-#   gh repo deploy-key list -R slade208/shell-history            find the ID
-#   gh repo deploy-key delete <ID> -R slade208/shell-history     revoke
-# Or browser: github.com/slade208/shell-history/settings/keys
+# hosts are untouched. The enrolment token covers this too (Administration
+# r/w = deploy-key list/add/delete) - no full-account auth needed anywhere:
+#   curl -fsS -H "Authorization: Bearer $HIST_ENROL_TOKEN" \
+#     https://api.github.com/repos/slade208/shell-history/keys        find ID
+#   curl -fsS -X DELETE -H "Authorization: Bearer $HIST_ENROL_TOKEN" \
+#     https://api.github.com/repos/slade208/shell-history/keys/<ID>   revoke
+# Convenience alternatives: from a gh-authed seat,
+#   gh repo deploy-key list|delete <ID> -R slade208/shell-history
+# or browser: github.com/slade208/shell-history/settings/keys
 # The host's history STAYS in the repo (that's the point). To erase the
 # record too: git rm hosts/<host>.log in any clone, commit, push.
