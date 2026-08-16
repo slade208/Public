@@ -23,18 +23,77 @@ command -v ssh-keygen >/dev/null 2>&1 || die "ssh-keygen is required"
 command -v flock >/dev/null 2>&1 || say "WARNING: flock missing - sync locking degraded"
 
 # --- phase 1: per-host deploy key -------------------------------------------
+# The host itself needs NO GitHub tooling - only git, curl, ssh-keygen. The
+# deploy key must be registered on GitHub's side, and there are two ways:
+#   - gh CLI on this box (optional): fully automatic, browserless-friendly
+#     (gh auth login uses a device code you can approve from a phone)
+#   - any browser anywhere: paste the printed key at the settings URL below
 if [ ! -f "$KEY" ]; then
     ssh-keygen -t ed25519 -N "" -f "$KEY" -C "shell-history@$HOSTTAG" >/dev/null
     say "generated deploy key for $HOSTTAG"
 fi
 
-if ! GIT_SSH_COMMAND="$SSHCMD" git ls-remote "$REPO_SSH" >/dev/null 2>&1; then
-    say "repo not reachable with this host's key yet."
-    say "add the key below as a DEPLOY KEY (write access) on slade208/shell-history,"
-    say "then re-run this script:"
-    echo
-    cat "$KEY.pub"
-    exit 2
+reachable() { GIT_SSH_COMMAND="$SSHCMD" git ls-remote "$REPO_SSH" >/dev/null 2>&1; }
+
+ask_tty() {  # ask_tty "question" -> 0 on yes; non-interactive contexts refuse
+    [ -r /dev/tty ] && [ -w /dev/tty ] || return 1
+    printf '[hist-join] %s [y/N] ' "$1" > /dev/tty
+    read -r _ans < /dev/tty || return 1
+    case "$_ans" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
+}
+
+install_gh() {  # official packages, package-manager-agnostic (cli.github.com)
+    _sudo=""; [ "$(id -u)" != "0" ] && _sudo="sudo"
+    if command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then
+        _pm=dnf; command -v dnf >/dev/null 2>&1 || _pm=yum
+        curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo | $_sudo tee /etc/yum.repos.d/gh-cli.repo >/dev/null \
+            && $_sudo $_pm install -y gh
+    elif command -v apt-get >/dev/null 2>&1; then
+        $_sudo mkdir -p -m 755 /etc/apt/keyrings \
+            && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | $_sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null \
+            && $_sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | $_sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null \
+            && $_sudo apt-get update -qq && $_sudo apt-get install -y -qq gh
+    else
+        say "no dnf/yum/apt found - install gh manually: https://cli.github.com"
+        return 1
+    fi
+}
+
+ensure_gh_ready() {  # returns 0 iff gh is installed AND authenticated
+    if ! command -v gh >/dev/null 2>&1; then
+        ask_tty "gh CLI not found - install it now to finish enrolment from this box?" || return 1
+        install_gh || return 1
+    fi
+    gh auth status >/dev/null 2>&1 && return 0
+    say "gh needs a one-time login (device flow: it prints a code + URL you"
+    say "can open on your phone - no browser needed on this box)"
+    ask_tty "run 'gh auth login' now?" || return 1
+    gh auth login < /dev/tty > /dev/tty 2>&1
+    gh auth status >/dev/null 2>&1
+}
+
+if ! reachable; then
+    if ensure_gh_ready; then
+        gh repo deploy-key add "$KEY.pub" -R slade208/shell-history --allow-write --title "$HOSTTAG" 2>/dev/null \
+            && say "deploy key added via gh - continuing in this same run"
+        sleep 2
+        # least-privilege note: the deploy key is what enrolment uses from now
+        # on; you may 'gh auth logout' afterwards if you don't want a broad
+        # account token sitting on this host.
+    fi
+    if ! reachable; then
+        say "repo not reachable with this host's key yet. The key:"
+        echo
+        cat "$KEY.pub"
+        echo
+        say "register it one of two ways, then re-run this script:"
+        say "  A) browser (any device): https://github.com/slade208/shell-history/settings/keys/new"
+        say "     title: $HOSTTAG - tick 'Allow write access'"
+        say "  B) gh CLI on this box:   gh auth login   (device flow, phone-friendly)"
+        say "     then just re-run this script - it adds the key itself."
+        exit 2
+    fi
 fi
 
 # --- phase 2: clone + host log ----------------------------------------------

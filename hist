@@ -12,10 +12,19 @@ echo $HISTFILE
 # NOTE: $HISTFILE only updates in NEW shells - for the machine's true state:
 grep -c 'shell-history' ~/.bashrc   # 0 = not enrolled, >0 = enrolled
 
-## Enrol this host (any Linux box; two-phase, idempotent)
+## Enrol this host (any Linux box; idempotent)
+# Requirements on the host: git, curl, ssh-keygen. NO GitHub tooling needed -
+# the gh CLI is optional and only makes enrolment one-step.
 bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
-# First run prints a deploy key - add it to slade208/shell-history
-# (Settings -> Deploy keys, WRITE access), then run the same command again.
+# If gh is installed + logged in: fully automatic, done in one run.
+# Otherwise the first run prints this host's deploy key; register it and re-run:
+#   A) browser (any device): github.com/slade208/shell-history/settings/keys/new
+#      title: <hostname> - tick 'Allow write access'
+#   B) no browser on this box: gh auth login   (device flow - approve the
+#      printed code from your phone), then re-run - the script adds the key
+#      itself. It will also OFFER to install gh (dnf/yum/apt) if missing.
+# Least privilege: the deploy key is all that's needed long-term - you can
+# 'gh auth logout' after enrolment so no broad token stays on the host.
 
 ## Daily use
 # ~/.shell-history/tooling/histgrep <pattern> [host]   search the whole estate
