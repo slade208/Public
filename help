@@ -8,6 +8,7 @@ operations.dev/config                         - Hyperstore commands to get an id
 operations.dev/custom                         - Customization hints below
 operations.dev/doppler                        - Doppler secrets - install, auth, and running things with them
 operations.dev/git                            - github command line notes
+operations.dev/hist                           - Estate shell history: never lose bash history again
 operations.dev/hsctl                          - HSCTL quick reference
 operations.dev/hsh                            - Get hsh status
 operations.dev/iam_sourceip_example_cloudian  - IAM policy to only allow put object from 192.168.0.90

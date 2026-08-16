@@ -1,0 +1,25 @@
+## Estate shell history: never lose bash history again
+# One private repo (slade208/shell-history) holds every enrolled host's bash
+# history: per-host capture with timestamps, a generated HISTORY.md with
+# ==host== sections, and a hot-set window so Ctrl-R on any host finds
+# commands run on any other. Every command hits disk immediately - crashed
+# sessions lose nothing. Desktop is the regen owner.
+
+## Enrol this host (any Linux box; two-phase, idempotent)
+bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
+# First run prints a deploy key - add it to slade208/shell-history
+# (Settings -> Deploy keys, WRITE access), then run the same command again.
+
+## Daily use
+# ~/.shell-history/tooling/histgrep <pattern> [host]   search the whole estate
+# Ctrl-R                                               includes other hosts' recent commands
+# cat ~/.shell-history/HISTORY.md                      the whole estate, sectioned
+
+## Restore
+# Damaged local file:  git -C ~/.shell-history restore hosts/$(hostname -s).log
+# Reimaged host:       re-run the enrol command - first shell has full history
+# Point in time:       git -C ~/.shell-history log -p hosts/<host>.log
+
+## Leave
+# ~/.shell-history/tooling/leave.sh          remove hooks, keep clone
+# ~/.shell-history/tooling/leave.sh --purge  also delete clone + key
