@@ -204,7 +204,7 @@ if [ -f "$HOME/.shell-history/hosts/$(hostname -s).log" ]; then
     export HISTSIZE=1000000
     export HISTFILESIZE=2000000
     export HISTTIMEFORMAT='%F %T '
-    export HISTIGNORE=' *:history:history *:*token=*:*password=*:*passwd=*:*secret=*:*api_key=*:*apikey=*'
+    export HISTIGNORE=' *:history:history *:*token=*:*TOKEN=*:*Token=*:*password=*:*PASSWORD=*:*passwd=*:*secret=*:*SECRET=*:*api_key=*:*API_KEY=*:*apikey=*'
     PROMPT_COMMAND="history -a${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
     # hot set: other hosts' recent commands, loaded into this session's Ctrl-R
     _shw="$HOME/.shell-history/generated/window-excl-$(hostname -s).hist"
