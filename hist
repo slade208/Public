@@ -43,6 +43,15 @@ bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
 # Reimaged host:       re-run the enrol command - first shell has full history
 # Point in time:       git -C ~/.shell-history log -p hosts/<host>.log
 
-## Leave
+## Leave (voluntary, run ON the host)
 # ~/.shell-history/tooling/leave.sh          remove hooks, keep clone
 # ~/.shell-history/tooling/leave.sh --purge  also delete clone + key
+
+## Evict a host (lost laptop, compromised or decommissioned box - run ANYWHERE)
+# Revoking its deploy key instantly cuts that host's read+push; all other
+# hosts are untouched. From any gh-authed seat:
+#   gh repo deploy-key list -R slade208/shell-history            find the ID
+#   gh repo deploy-key delete <ID> -R slade208/shell-history     revoke
+# Or browser: github.com/slade208/shell-history/settings/keys
+# The host's history STAYS in the repo (that's the point). To erase the
+# record too: git rm hosts/<host>.log in any clone, commit, push.
