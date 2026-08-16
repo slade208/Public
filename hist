@@ -5,6 +5,13 @@
 # commands run on any other. Every command hits disk immediately - crashed
 # sessions lose nothing. Desktop is the regen owner.
 
+## Am I enrolled?
+echo $HISTFILE
+# enrolled     -> ~/.shell-history/hosts/<hostname>.log
+# not enrolled -> ~/.bash_history (the default)
+# NOTE: $HISTFILE only updates in NEW shells - for the machine's true state:
+grep -c 'shell-history' ~/.bashrc   # 0 = not enrolled, >0 = enrolled
+
 ## Enrol this host (any Linux box; two-phase, idempotent)
 bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
 # First run prints a deploy key - add it to slade208/shell-history
