@@ -106,25 +106,67 @@ ensure_gh_ready() {  # returns 0 iff gh is installed AND authenticated
     gh auth status >/dev/null 2>&1
 }
 
+add_key_with_token() {  # POST the pubkey with a fine-grained enrolment token
+    curl -fsS -X POST \
+        -H "Accept: application/vnd.github+json" \
+        -H "Authorization: Bearer $1" \
+        "https://api.github.com/repos/slade208/shell-history/keys" \
+        -d "{\"title\":\"$HOSTTAG\",\"key\":\"$(cat "$KEY.pub")\",\"read_only\":false}" >/dev/null 2>&1
+}
+
 if ! reachable; then
-    if ensure_gh_ready; then
+    # LEAST-PRIVILEGE PATH FIRST: a fine-grained PAT scoped to ONLY the
+    # shell-history repo (permission: Administration r/w, short expiry) can
+    # add the key via plain curl - no gh, no broad login, nothing stored on
+    # the host (the token is used once, in memory). Pass HIST_ENROL_TOKEN=...
+    # or paste at the (hidden) prompt. Minting steps: operations.dev/hist.
+    _tok="${HIST_ENROL_TOKEN:-}"
+    if [ -z "$_tok" ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
+        printf '[hist-join] enrolment token (repo-scoped fine-grained PAT)? paste hidden, or Enter to skip: ' > /dev/tty
+        stty -echo < /dev/tty 2>/dev/null
+        read -r _tok < /dev/tty || _tok=""
+        stty echo < /dev/tty 2>/dev/null
+        printf '\n' > /dev/tty
+    fi
+    if [ -n "$_tok" ]; then
+        if add_key_with_token "$_tok"; then
+            say "deploy key added via enrolment token - continuing in this same run"
+            sleep 2
+        else
+            say "token add failed (expired? mis-scoped?) - trying other routes"
+        fi
+        unset _tok
+    fi
+
+    # gh CLI path: convenient, but the login it leaves behind is a BROAD
+    # account token - so after a successful add, offer to log out again.
+    if ! reachable && ensure_gh_ready; then
         gh repo deploy-key add "$KEY.pub" -R slade208/shell-history --allow-write --title "$HOSTTAG" 2>/dev/null \
             && say "deploy key added via gh - continuing in this same run"
         sleep 2
-        # least-privilege note: the deploy key is what enrolment uses from now
-        # on; you may 'gh auth logout' afterwards if you don't want a broad
-        # account token sitting on this host.
+        if reachable && gh auth status >/dev/null 2>&1; then
+            if ask_tty "gh auth logout now? (the deploy key is all this host needs; the gh login is a full-account token)"; then
+                gh auth logout --hostname github.com >/dev/null 2>&1 || gh auth logout >/dev/null 2>&1
+                say "gh logged out - only the repo-scoped deploy key remains on this host"
+            else
+                say "reminder: 'gh auth logout' later removes the broad token; enrolment won't miss it"
+            fi
+        fi
     fi
+
     if ! reachable; then
         say "repo not reachable with this host's key yet. The key:"
         echo
         cat "$KEY.pub"
         echo
-        say "register it one of two ways, then re-run this script:"
-        say "  A) browser (any device): https://github.com/slade208/shell-history/settings/keys/new"
+        say "register it one of three ways, then re-run this script:"
+        say "  A) least-privilege token:  HIST_ENROL_TOKEN=<fine-grained PAT> re-run this script"
+        say "     (mint: github Settings -> Developer settings -> Fine-grained tokens;"
+        say "      only repo shell-history, permission Administration r/w, short expiry)"
+        say "  B) browser (any device):   https://github.com/slade208/shell-history/settings/keys/new"
         say "     title: $HOSTTAG - tick 'Allow write access'"
-        say "  B) gh CLI on this box:   gh auth login   (device flow, phone-friendly)"
-        say "     then just re-run this script - it adds the key itself."
+        say "  C) gh CLI on this box:     gh auth login   (device flow, phone-friendly)"
+        say "     then re-run - the script adds the key and offers to log gh out again."
         exit 2
     fi
 fi

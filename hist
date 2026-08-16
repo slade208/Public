@@ -17,15 +17,21 @@ grep -c 'shell-history' ~/.bashrc   # 0 = not enrolled, >0 = enrolled
 # to install anything missing - dnf/yum/apt/zypper/apk/pacman). NO GitHub tooling -
 # the gh CLI is optional and only makes enrolment one-step.
 bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
-# If gh is installed + logged in: fully automatic, done in one run.
-# Otherwise the first run prints this host's deploy key; register it and re-run:
-#   A) browser (any device): github.com/slade208/shell-history/settings/keys/new
-#      title: <hostname> - tick 'Allow write access'
-#   B) no browser on this box: gh auth login   (device flow - approve the
-#      printed code from your phone), then re-run - the script adds the key
-#      itself. It will also OFFER to install gh (dnf/yum/apt) if missing.
-# Least privilege: the deploy key is all that's needed long-term - you can
-# 'gh auth logout' after enrolment so no broad token stays on the host.
+# Three ways to register the key, most-scoped first:
+#   A) LEAST PRIVILEGE - enrolment token (recommended). Mint a fine-grained
+#      PAT: github Settings -> Developer settings -> Fine-grained tokens ->
+#      Generate new; Only select repositories -> shell-history; Repository
+#      permissions -> Administration: Read and write; expiry 7-30 days.
+#      Then:  HIST_ENROL_TOKEN=<token> bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
+#      (or paste it at the script's hidden prompt). Plain curl adds the key -
+#      no gh needed, token used once in memory, nothing stored on the host.
+#      Blast radius if leaked: admin of the ONE history repo, until expiry.
+#   B) browser (any device): github.com/slade208/shell-history/settings/keys/new
+#      title: <hostname> - tick 'Allow write access', then re-run.
+#   C) gh CLI: gh auth login (device flow - approve from your phone), re-run.
+#      CAUTION: gh login = a FULL-ACCOUNT token on the host; the script now
+#      offers 'gh auth logout' right after the key is added - say yes. The
+#      deploy key is all enrolment needs long-term.
 
 ## Daily use
 # ~/.shell-history/tooling/histgrep <pattern> [host]   search the whole estate
