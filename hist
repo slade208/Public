@@ -13,7 +13,8 @@ echo $HISTFILE
 grep -c 'shell-history' ~/.bashrc   # 0 = not enrolled, >0 = enrolled
 
 ## Enrol this host (any Linux box; idempotent)
-# Requirements on the host: git, curl, ssh-keygen. NO GitHub tooling needed -
+# Requirements on the host: git, curl, ssh-keygen (the script CHECKS and OFFERS
+# to install anything missing - dnf/yum/apt/zypper/apk/pacman). NO GitHub tooling -
 # the gh CLI is optional and only makes enrolment one-step.
 bash -c "$(curl -fsSL operations.dev/hist-join.sh)"
 # If gh is installed + logged in: fully automatic, done in one run.

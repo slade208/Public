@@ -18,9 +18,49 @@ SSHCMD="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 say() { printf '%s\n' "[hist-join] $*"; }
 die() { printf '%s\n' "[hist-join] ERROR: $*" >&2; exit 1; }
 
-command -v git >/dev/null 2>&1 || die "git is required"
-command -v ssh-keygen >/dev/null 2>&1 || die "ssh-keygen is required"
-command -v flock >/dev/null 2>&1 || say "WARNING: flock missing - sync locking degraded"
+ask_tty() {  # ask_tty "question" -> 0 on yes; non-interactive contexts refuse
+    [ -r /dev/tty ] && [ -w /dev/tty ] || return 1
+    printf '[hist-join] %s [y/N] ' "$1" > /dev/tty
+    read -r _ans < /dev/tty || return 1
+    case "$_ans" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
+}
+
+pkg_install() {  # install packages with whatever manager this distro has
+    _sudo=""; [ "$(id -u)" != "0" ] && _sudo="sudo"
+    if   command -v dnf >/dev/null 2>&1;     then $_sudo dnf install -y "$@"
+    elif command -v yum >/dev/null 2>&1;     then $_sudo yum install -y "$@"
+    elif command -v apt-get >/dev/null 2>&1; then $_sudo apt-get update -qq && $_sudo apt-get install -y -qq "$@"
+    elif command -v zypper >/dev/null 2>&1;  then $_sudo zypper -n install "$@"
+    elif command -v apk >/dev/null 2>&1;     then $_sudo apk add "$@"
+    elif command -v pacman >/dev/null 2>&1;  then $_sudo pacman -S --noconfirm "$@"
+    else say "no known package manager (dnf/yum/apt/zypper/apk/pacman)"; return 1; fi
+}
+
+pkg_for() {  # map a missing command to this distro family's package name
+    case "$1" in
+        git)   echo git ;;
+        flock) echo util-linux ;;
+        ssh-keygen)
+            if command -v apt-get >/dev/null 2>&1; then echo openssh-client
+            elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then echo openssh-clients
+            else echo openssh; fi ;;
+    esac
+}
+
+# requirements: git + ssh-keygen (hard), flock (sync locking - soft). Anything
+# missing is offered for install rather than just refused - could be any Linux.
+missing=""
+for c in git ssh-keygen flock; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
+if [ -n "$missing" ]; then
+    pkgs=""; for c in $missing; do pkgs="$pkgs $(pkg_for "$c")"; done
+    say "this host is missing:$missing"
+    if ask_tty "install now ($pkgs) via this distro's package manager?"; then
+        pkg_install $pkgs || say "install failed - continuing to per-tool checks"
+    fi
+    command -v git >/dev/null 2>&1 || die "git is required - install it and re-run"
+    command -v ssh-keygen >/dev/null 2>&1 || die "ssh-keygen is required - install it and re-run"
+    command -v flock >/dev/null 2>&1 || say "WARNING: flock still missing - sync locking degraded"
+fi
 
 # --- phase 1: per-host deploy key -------------------------------------------
 # The host itself needs NO GitHub tooling - only git, curl, ssh-keygen. The
@@ -34,13 +74,6 @@ if [ ! -f "$KEY" ]; then
 fi
 
 reachable() { GIT_SSH_COMMAND="$SSHCMD" git ls-remote "$REPO_SSH" >/dev/null 2>&1; }
-
-ask_tty() {  # ask_tty "question" -> 0 on yes; non-interactive contexts refuse
-    [ -r /dev/tty ] && [ -w /dev/tty ] || return 1
-    printf '[hist-join] %s [y/N] ' "$1" > /dev/tty
-    read -r _ans < /dev/tty || return 1
-    case "$_ans" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
-}
 
 install_gh() {  # official packages, package-manager-agnostic (cli.github.com)
     _sudo=""; [ "$(id -u)" != "0" ] && _sudo="sudo"
