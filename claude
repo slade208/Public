@@ -27,10 +27,52 @@ curl operations.dev/doppler
 # Nothing. The hooks pull at session start and push at the end.
 # Browse the facts in Obsidian: Jarvis/team-memory/internal (MEMORY.md is the index)
 
-## Did it work
-# Start claude in the project and ask: "what do you remember?"
-# A joined seat lists facts grouped by topic. "I have no memory" or an empty
-# answer means the folder isn't linked - see troubleshooting in the runbook.
+## Did it work / is this box already a seat
+# Nothing about a running session announces that it is joined, so ask the disk,
+# not the model. Lists every project claude knows about, which are joined, the
+# seat name, and whether both hooks are actually wired:
+bash ~/agent-notes/tooling/seats.sh
+pwsh ~/agent-notes/tooling/seats.ps1        # Windows
+
+# Scriptable: exit 0 if any seat on this box is joined, 1 if none
+bash ~/agent-notes/tooling/seats.sh --quiet
+
+## Which BOXES are enrolled across the fleet
+# There is no registry - nothing reports in when a box joins. The only
+# fleet-wide evidence is who has WRITTEN to the tree:
+bash ~/agent-notes/tooling/seats.sh --fleet
+
+# Read it as contribution history, not a roster. A box retired months ago still
+# appears; a box joined this morning that hasn't written yet does not. Use the
+# first/last dates to judge. To settle one box, run seats.sh ON that box.
+
+## The seat's name
+# Signs this box's commits to the tree. Written by the join script, one line,
+# untracked - so renaming is just editing the file:
+cat  ~/agent-notes/.seat
+echo desktop1-wsl > ~/agent-notes/.seat
+# Unset means the box signs as "agent", same as every other unnamed seat.
+# WSL TRAP: a WSL guest reports its WINDOWS HOST's name as its own hostname, so
+# both default to the same seat name. The scripts suffix -wsl / -win; a box
+# joined before that needs .seat set by hand on both sides.
+
+## Leaving - retiring a seat from this box
+# Joining leaves behind a private clone of the whole tree, a GitHub token and
+# your Anthropic credential. rm -rf ~/.claude is the intuitive cleanup and it is
+# the WRONG one: it deletes the memory POINTER and keeps the corpus, and leaves
+# both credentials live. Use the script - dry run first, it changes nothing:
+bash ~/agent-notes/tooling/leave.sh
+bash ~/agent-notes/tooling/leave.sh --yes          # revoke and remove
+bash ~/agent-notes/tooling/leave.sh --yes --uninstall-cli
+
+# Windows twin (built, not yet exercised end to end - check its output):
+pwsh ~/agent-notes/tooling/leave.ps1
+
+# It REFUSES while the tree holds facts that never reached GitHub. Push first:
+bash ~/agent-notes/tooling/hooks/stop.sh
+# The GitHub token stays valid server-side until revoked at
+# github.com/settings/applications - that grant is shared by all your boxes.
+# After retiring a box, delete or reword any fact describing that seat.
 
 ## Full docs when the quick version isn't enough
 # github.com/slade208/jarvis-agent  ->  docs/runbooks/join-a-seat-to-shared-knowledge.md
