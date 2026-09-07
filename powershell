@@ -4,3 +4,7 @@ Code
 
 Host <hostname or IP address>
     MACs hmac-sha2-512
+
+
+## Get powershell from within WSL
+alias pwsh='/mnt/c/Users/slade/AppData/Local/Microsoft/WindowsApps/pwsh.exe'
