@@ -66,6 +66,18 @@
     font-size: 0.85rem;
     min-height: 1.4em;
   }
+  #ticket {
+    display: block;
+    margin: 20px auto 8px;
+    padding: 10px 18px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--panel);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #ticket:active { color: var(--text); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -77,6 +89,8 @@
   <div class="grid" id="grid"></div>
 
   <div id="last"></div>
+
+  <button id="ticket">Print Wi-Fi join ticket</button>
 
 <script>
 const CMC_MIN = {{ cmc_min }};
@@ -131,6 +145,20 @@ async function printCmc(cmc, btn) {
   busy = false;
   setButtonsDisabled(false);
 }
+
+document.getElementById('ticket').onclick = async () => {
+  if (busy) return;
+  busy = true;
+  showStatus('Printing join ticket…', '');
+  try {
+    const res = await fetch('/print-ticket', {method: 'POST'});
+    const data = await res.json();
+    showStatus(data.ok ? 'Ticket printed' : 'Nope', data.ok ? 'Hand it to the table' : (data.error || ''));
+  } catch (e) {
+    showStatus('Connection lost', '');
+  }
+  busy = false;
+};
 
 async function pollStatus() {
   if (busy) return;

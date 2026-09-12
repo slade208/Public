@@ -48,6 +48,34 @@ no GPIO, no breadboard, and no soldering.
    the Scryfall card database (creature JSON + dithered art), which takes a
    while; the page shows progress. After that, updates are incremental.
 
+### Hotspot mode (play anywhere, let friends print)
+
+The Pi can be its own Wi-Fi access point so nobody needs your home network:
+anyone at the table joins the Pi's Wi-Fi and gets the print page.
+
+1. Do the first-time setup above **on your home network first** - the card
+   database download needs internet, and in hotspot mode the Pi's Wi-Fi has
+   none.
+2. In `src/config.ini`, set:
+
+   ```ini
+   [WIFI]
+   ap_enabled = True
+   ap_ssid = MomirPrinter
+   ap_password = <8-63 characters>
+   ```
+
+3. Re-run `sudo ./setup.sh`. Heads up: if you're SSHed in over Wi-Fi, your
+   session drops when the hotspot comes up.
+4. Join the `MomirPrinter` network and open `http://10.42.0.1:8080`.
+5. Tap **Print Wi-Fi join ticket** in the app: it prints a receipt with two
+   QR codes - scan to join the Wi-Fi, scan to open the page. Hand it to the
+   table.
+
+While in hotspot mode the app skips card database refreshes and plays from
+local data (plug in Ethernet if you want updates without leaving AP mode).
+To go back to normal Wi-Fi, set `ap_enabled = False` and re-run setup.
+
 ### USB mode
 
 If your PT-210's USB port does data (many clones do), you can use a cable

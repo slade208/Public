@@ -158,6 +158,45 @@ class Printer:
 
         printer.image(str(card_art_path))
 
+    def print_wifi_ticket(self, url: str, ssid: str = '', password: str = '') -> None:
+        """Print a join ticket: Wi-Fi QR code (if AP mode) and the app URL QR.
+
+        Guests scan the first QR to join the hotspot and the second to open
+        the print page - no typing required.
+        """
+        printer = self._get_printer_connection()
+        try:
+            printer.set(align='center', bold=True)
+            printer.text("MOMIR POCKET PRINTER\n\n")
+
+            if ssid:
+                printer.set(align='center', bold=False)
+                printer.text("1. Scan to join the Wi-Fi:\n\n")
+                if password:
+                    wifi_qr = f"WIFI:T:WPA;S:{ssid};P:{password};;"
+                else:
+                    wifi_qr = f"WIFI:T:nopass;S:{ssid};;"
+                printer.qr(wifi_qr, size=self.qr_code_size)
+                printer.set(align='center', bold=False)
+                printer.text(f"\nNetwork: {ssid}\n")
+                if password:
+                    printer.text(f"Password: {password}\n")
+                printer.text("\n2. Scan to open the printer:\n\n")
+            else:
+                printer.set(align='center', bold=False)
+                printer.text("Scan to open the printer:\n\n")
+
+            printer.qr(url, size=self.qr_code_size)
+            printer.set(align='center', bold=False)
+            printer.text(f"\n{url}\n")
+            printer.text("\n\n\n")
+            logger.info("Printed Wi-Fi join ticket")
+        finally:
+            try:
+                printer.close()
+            except Exception:
+                pass
+
     def print_card(self, card: Dict[str, Any]) -> None:
         """Print a formatted Magic: The Gathering card.
 

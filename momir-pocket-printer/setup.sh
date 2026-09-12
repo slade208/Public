@@ -87,6 +87,52 @@ EOF
     fi
 fi
 
+AP_ENABLED="$(get_config WIFI ap_enabled | tr '[:upper:]' '[:lower:]')"
+if [[ "$AP_ENABLED" == "true" ]]; then
+    AP_SSID="$(get_config WIFI ap_ssid)"
+    AP_PASSWORD="$(get_config WIFI ap_password)"
+    AP_IFACE="$(get_config WIFI ap_interface)"
+    AP_IFACE="${AP_IFACE:-wlan0}"
+
+    if ! command -v nmcli >/dev/null; then
+        echo "!! nmcli not found. AP mode needs NetworkManager (default on Raspberry Pi OS Bookworm)."
+        exit 1
+    fi
+    if [[ -z "$AP_SSID" ]]; then
+        echo "!! ap_ssid is empty in src/config.ini"
+        exit 1
+    fi
+    if [[ ${#AP_PASSWORD} -lt 8 || ${#AP_PASSWORD} -gt 63 ]]; then
+        echo "!! ap_password must be 8-63 characters (WPA2 requirement)"
+        exit 1
+    fi
+
+    echo "==> Configuring Wi-Fi access point '$AP_SSID' on $AP_IFACE..."
+    echo "    NOTE: if you are SSHed in over Wi-Fi, this will drop your connection."
+    echo "    The Pi will then be at http://10.42.0.1:8080 on the '$AP_SSID' network."
+    if nmcli -t -f NAME con show | grep -qx momir-ap; then
+        nmcli con modify momir-ap 802-11-wireless.ssid "$AP_SSID" wifi-sec.psk "$AP_PASSWORD"
+    else
+        nmcli con add type wifi ifname "$AP_IFACE" con-name momir-ap autoconnect yes ssid "$AP_SSID"
+        nmcli con modify momir-ap \
+            802-11-wireless.mode ap \
+            802-11-wireless.band bg \
+            ipv4.method shared \
+            ipv4.addresses 10.42.0.1/24 \
+            ipv6.method disabled \
+            connection.autoconnect-priority 100 \
+            wifi-sec.key-mgmt wpa-psk \
+            wifi-sec.psk "$AP_PASSWORD"
+    fi
+    nmcli con up momir-ap || echo "!! Hotspot will start on next boot."
+else
+    # AP previously enabled and now turned off in config? Remove the profile.
+    if command -v nmcli >/dev/null && nmcli -t -f NAME con show | grep -qx momir-ap; then
+        echo "==> ap_enabled is False: removing existing hotspot profile..."
+        nmcli con delete momir-ap || true
+    fi
+fi
+
 echo "==> Installing app service..."
 cat > "/etc/systemd/system/$SERVICE_NAME.service" <<EOF
 [Unit]
@@ -109,8 +155,13 @@ EOF
 systemctl daemon-reload
 systemctl enable --now "$SERVICE_NAME.service"
 
-IP_ADDR="$(hostname -I | awk '{print $1}')"
 PORT="$(get_config APP listen_port)"
 echo ""
-echo "Done. Open http://${IP_ADDR:-<pi-address>}:${PORT:-8080} on your phone."
+if [[ "$AP_ENABLED" == "true" ]]; then
+    echo "Done. Join Wi-Fi '$AP_SSID' and open http://10.42.0.1:${PORT:-8080}"
+    echo "(or tap 'Print Wi-Fi join ticket' in the app to print a scannable QR receipt)."
+else
+    IP_ADDR="$(hostname -I | awk '{print $1}')"
+    echo "Done. Open http://${IP_ADDR:-<pi-address>}:${PORT:-8080} on your phone."
+fi
 echo "Logs: sudo journalctl -u $SERVICE_NAME.service -f"

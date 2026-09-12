@@ -31,6 +31,7 @@ if missing_sections:
         f"Missing required configuration sections: {', '.join(missing_sections)}")
 
 app_config = config['APP']
+wifi_config = config['WIFI'] if 'WIFI' in config else None
 filesystem_config = config['FILESYSTEM']
 logging_config = config['LOGGING']
 printer_config = config['PRINTER']
@@ -154,6 +155,32 @@ def print_random_card():
     except Exception as e:
         logger.error(f"Print failed: {e}")
         _set_state('ready', '')
+        return jsonify({'ok': False,
+                        'error': 'Printer error - is it on and paired?'}), 502
+    finally:
+        _print_lock.release()
+
+
+@app.route('/print-ticket', methods=['POST'])
+def print_wifi_ticket():
+    """Print a receipt with QR codes for joining the hotspot and opening this page."""
+    ssid = ''
+    password = ''
+    if wifi_config is not None and wifi_config.getboolean('ap_enabled', fallback=False):
+        ssid = wifi_config.get('ap_ssid', fallback='')
+        password = wifi_config.get('ap_password', fallback='')
+
+    # In AP mode clients reach us at the shared-mode gateway address; either
+    # way the address the requester used is the address that works.
+    url = request.host_url.rstrip('/')
+
+    if not _print_lock.acquire(blocking=False):
+        return jsonify({'ok': False, 'error': 'Already printing'}), 409
+    try:
+        printer.print_wifi_ticket(url, ssid=ssid, password=password)
+        return jsonify({'ok': True})
+    except Exception as e:
+        logger.error(f"Ticket print failed: {e}")
         return jsonify({'ok': False,
                         'error': 'Printer error - is it on and paired?'}), 502
     finally:
