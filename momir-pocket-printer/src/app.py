@@ -7,12 +7,15 @@ creature with that CMC prints on the thermal printer.
 """
 
 import configparser
+import json
 import logging
+import secrets
 import sys
 import threading
+import time
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
 
 from printer import Printer
 from scryfall import Scryfall
@@ -32,6 +35,7 @@ if missing_sections:
 
 app_config = config['APP']
 wifi_config = config['WIFI'] if 'WIFI' in config else None
+access_config = config['ACCESS'] if 'ACCESS' in config else None
 filesystem_config = config['FILESYSTEM']
 logging_config = config['LOGGING']
 printer_config = config['PRINTER']
@@ -70,6 +74,161 @@ def _set_state(status: str, detail: str = '') -> None:
     with _state_lock:
         _state['status'] = status
         _state['detail'] = detail
+
+
+# ===== Device access control =====
+# Devices are identified by a random cookie. New devices register as
+# 'pending' and can print only after the host (unlocked via admin_pin)
+# approves them. The device list persists across restarts.
+
+ACCESS_ENABLED = (access_config is not None
+                  and access_config.getboolean('access_control_enabled', fallback=True))
+ADMIN_PIN = access_config.get('admin_pin', fallback='') if access_config else ''
+DEVICE_COOKIE = 'momir_device'
+
+_base_path = Path(__file__).resolve().parent.parent
+_devices_path = _base_path / (access_config.get('devices_path', fallback='./devices.json')
+                              if access_config else './devices.json')
+_devices_lock = threading.Lock()
+
+if ACCESS_ENABLED and (len(ADMIN_PIN) < 4 or len(ADMIN_PIN) > 32):
+    raise ValueError("admin_pin must be 4-32 characters when access control is enabled")
+
+
+def _load_devices() -> dict:
+    try:
+        with open(_devices_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+_devices = _load_devices()
+
+
+def _save_devices() -> None:
+    with open(_devices_path, 'w', encoding='utf-8') as f:
+        json.dump(_devices, f, indent=2)
+
+
+def _get_device_id():
+    return request.cookies.get(DEVICE_COOKIE)
+
+
+def _get_device(device_id):
+    if not device_id:
+        return None
+    with _devices_lock:
+        return _devices.get(device_id)
+
+
+def _device_role(device) -> str:
+    """Role for this request: host | approved | pending | denied | new."""
+    if device is None:
+        return 'new'
+    return device.get('status', 'pending')
+
+
+def _require(*roles):
+    """Return an error response if the requesting device lacks the role, else None."""
+    if not ACCESS_ENABLED:
+        return None
+    role = _device_role(_get_device(_get_device_id()))
+    if role in roles:
+        return None
+    if role in ('pending', 'denied'):
+        return jsonify({'ok': False, 'error': 'Waiting for host approval'}), 403
+    return jsonify({'ok': False, 'error': 'Register this device first'}), 401
+
+
+@app.route('/me')
+def me():
+    device_id = _get_device_id()
+    device = _get_device(device_id)
+    payload = {
+        'access_control': ACCESS_ENABLED,
+        'role': 'approved' if not ACCESS_ENABLED else _device_role(device),
+        'name': (device or {}).get('name', ''),
+    }
+    resp = make_response(jsonify(payload))
+    if not device_id:
+        resp.set_cookie(DEVICE_COOKIE, secrets.token_urlsafe(16),
+                        max_age=365 * 24 * 3600, samesite='Lax')
+    return resp
+
+
+@app.route('/register', methods=['POST'])
+def register():
+    device_id = _get_device_id()
+    if not device_id:
+        return jsonify({'ok': False, 'error': 'No device cookie; reload the page'}), 400
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name') or 'Player').strip()[:24] or 'Player'
+    with _devices_lock:
+        existing = _devices.get(device_id)
+        if existing is None or existing.get('status') == 'denied':
+            _devices[device_id] = {'name': name, 'status': 'pending',
+                                   'first_seen': time.time()}
+        else:
+            existing['name'] = name
+        _save_devices()
+    logger.info(f"Device registered: {name}")
+    return jsonify({'ok': True})
+
+
+@app.route('/host/login', methods=['POST'])
+def host_login():
+    device_id = _get_device_id()
+    if not device_id:
+        return jsonify({'ok': False, 'error': 'No device cookie; reload the page'}), 400
+    data = request.get_json(silent=True) or {}
+    pin = str(data.get('pin') or '')
+    if not secrets.compare_digest(pin, ADMIN_PIN):
+        time.sleep(1)  # slow down PIN guessing
+        return jsonify({'ok': False, 'error': 'Wrong PIN'}), 403
+    data_name = str(data.get('name') or 'Host').strip()[:24] or 'Host'
+    with _devices_lock:
+        _devices[device_id] = {'name': data_name, 'status': 'host',
+                               'first_seen': time.time()}
+        _save_devices()
+    logger.info("Host device unlocked")
+    return jsonify({'ok': True})
+
+
+@app.route('/host/devices')
+def host_devices():
+    err = _require('host')
+    if err:
+        return err
+    with _devices_lock:
+        listing = [
+            {'id': did, 'name': d.get('name', 'Player'), 'status': d.get('status')}
+            for did, d in sorted(_devices.items(),
+                                 key=lambda kv: kv[1].get('first_seen', 0))
+        ]
+    return jsonify({'ok': True, 'devices': listing})
+
+
+@app.route('/host/set-status', methods=['POST'])
+def host_set_status():
+    err = _require('host')
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    target_id = data.get('id')
+    new_status = data.get('status')
+    if new_status not in ('approved', 'denied'):
+        return jsonify({'ok': False, 'error': 'status must be approved or denied'}), 400
+    with _devices_lock:
+        target = _devices.get(target_id)
+        if target is None:
+            return jsonify({'ok': False, 'error': 'Unknown device'}), 404
+        if target.get('status') == 'host':
+            return jsonify({'ok': False, 'error': 'Cannot change the host device'}), 400
+        target['status'] = new_status
+        _save_devices()
+    logger.info(f"Device '{target.get('name')}' set to {new_status}")
+    return jsonify({'ok': True})
 
 
 def _startup_refresh() -> None:
@@ -111,6 +270,9 @@ def status():
 
 @app.route('/print', methods=['POST'])
 def print_random_card():
+    err = _require('host', 'approved')
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     try:
         cmc = int(data.get('cmc'))
@@ -164,6 +326,9 @@ def print_random_card():
 @app.route('/print-ticket', methods=['POST'])
 def print_wifi_ticket():
     """Print a receipt with QR codes for joining the hotspot and opening this page."""
+    err = _require('host', 'approved')
+    if err:
+        return err
     ssid = ''
     password = ''
     if wifi_config is not None and wifi_config.getboolean('ap_enabled', fallback=False):

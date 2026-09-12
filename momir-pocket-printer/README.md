@@ -76,6 +76,22 @@ While in hotspot mode the app skips card database refreshes and plays from
 local data (plug in Ethernet if you want updates without leaving AP mode).
 To go back to normal Wi-Fi, set `ap_enabled = False` and re-run setup.
 
+### Controlling who can print
+
+With `[ACCESS] access_control_enabled = True` (the default), new devices
+can't print until the host approves them:
+
+1. **Change `admin_pin` in `src/config.ini`** before game night.
+2. On your own phone, tap **I'm the host** and enter the PIN. Your device
+   becomes the host and gets a Players panel.
+3. Friends open the page, enter their name, and tap **Ask to join**. They
+   sit in a waiting screen until you tap **Approve** next to their name.
+4. Tap **Kick** any time to revoke someone; they can re-request.
+
+Approvals are remembered across restarts (in `devices.json`), so regulars
+only ask once. Set `access_control_enabled = False` for a fully open
+printer.
+
 ### USB mode
 
 If your PT-210's USB port does data (many clones do), you can use a cable
