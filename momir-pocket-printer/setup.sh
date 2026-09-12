@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Momir Pocket Printer setup for Raspberry Pi OS.
+# Installs dependencies, binds the Bluetooth printer to /dev/rfcomm0 at boot,
+# and installs a systemd service that starts the web app on boot.
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$PROJECT_DIR/src/config.ini"
+SERVICE_NAME="momir-pocket-printer"
+RFCOMM_SERVICE_NAME="momir-rfcomm"
+RUN_USER="${SUDO_USER:-$USER}"
+
+if [[ $EUID -ne 0 ]]; then
+    echo "Please run with sudo: sudo ./setup.sh"
+    exit 1
+fi
+
+get_config() {
+    # get_config SECTION key -> value
+    awk -F' *= *' -v section="[$1]" -v key="$2" '
+        $0 == section { in_section=1; next }
+        /^\[/ { in_section=0 }
+        in_section && $1 == key { print $2; exit }
+    ' "$CONFIG_FILE"
+}
+
+CONNECTION_MODE="$(get_config PRINTER connection_mode)"
+BT_MAC="$(get_config PRINTER bluetooth_mac)"
+
+echo "==> Installing system packages..."
+apt-get update -qq
+apt-get install -y -qq python3-venv python3-pip bluez libopenjp2-7
+
+echo "==> Creating Python virtual environment..."
+sudo -u "$RUN_USER" python3 -m venv "$PROJECT_DIR/.venv"
+sudo -u "$RUN_USER" "$PROJECT_DIR/.venv/bin/pip" install --quiet -r "$PROJECT_DIR/requirements.txt"
+
+if [[ "$CONNECTION_MODE" == "bluetooth" ]]; then
+    if [[ -z "$BT_MAC" || "$BT_MAC" == "00:00:00:00:00:00" ]]; then
+        cat <<'EOF'
+!! bluetooth_mac is not set in src/config.ini.
+
+   Find your printer's MAC address first:
+     1. Turn the printer on.
+     2. Run: bluetoothctl
+     3. In the prompt: scan on
+     4. Look for a device named PT-210 (or similar) and note its MAC.
+     5. Still in bluetoothctl: pair <MAC>   (PIN is usually 0000 or 1234)
+        then: trust <MAC>, then: quit
+     6. Put the MAC in src/config.ini under [PRINTER] bluetooth_mac.
+     7. Re-run: sudo ./setup.sh
+EOF
+        exit 1
+    fi
+
+    echo "==> Installing rfcomm binding service for $BT_MAC..."
+    cat > "/etc/systemd/system/$RFCOMM_SERVICE_NAME.service" <<EOF
+[Unit]
+Description=Bind PT-210 thermal printer to /dev/rfcomm0
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rfcomm connect 0 $BT_MAC 1
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now "$RFCOMM_SERVICE_NAME.service"
+elif [[ "$CONNECTION_MODE" == "usb" ]]; then
+    echo "==> USB mode: granting $RUN_USER access to USB printers (plugdev)..."
+    usermod -aG plugdev "$RUN_USER" || true
+    VENDOR_ID="$(get_config PRINTER vendor_id | sed 's/^0x//')"
+    PRODUCT_ID="$(get_config PRINTER product_id | sed 's/^0x//')"
+    if [[ -n "$VENDOR_ID" && "$VENDOR_ID" != "0000" ]]; then
+        cat > /etc/udev/rules.d/99-momir-printer.rules <<EOF
+SUBSYSTEM=="usb", ATTRS{idVendor}=="$VENDOR_ID", ATTRS{idProduct}=="$PRODUCT_ID", MODE="0666"
+EOF
+        udevadm control --reload-rules
+        udevadm trigger
+    else
+        echo "!! Set vendor_id/product_id in src/config.ini (from lsusb), then re-run setup."
+    fi
+fi
+
+echo "==> Installing app service..."
+cat > "/etc/systemd/system/$SERVICE_NAME.service" <<EOF
+[Unit]
+Description=Momir Pocket Printer web app
+After=network-online.target $([[ "$CONNECTION_MODE" == "bluetooth" ]] && echo "$RFCOMM_SERVICE_NAME.service")
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$RUN_USER
+WorkingDirectory=$PROJECT_DIR/src
+ExecStart=$PROJECT_DIR/.venv/bin/python $PROJECT_DIR/src/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now "$SERVICE_NAME.service"
+
+IP_ADDR="$(hostname -I | awk '{print $1}')"
+PORT="$(get_config APP listen_port)"
+echo ""
+echo "Done. Open http://${IP_ADDR:-<pi-address>}:${PORT:-8080} on your phone."
+echo "Logs: sudo journalctl -u $SERVICE_NAME.service -f"

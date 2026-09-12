@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Momir Pocket Printer</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1e222c;
+    --accent: #4caf7d;
+    --accent-press: #3b8a63;
+    --text: #e8e8e8;
+    --muted: #8a8f9c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 480px;
+    margin-inline: auto;
+  }
+  h1 {
+    font-size: 1.25rem;
+    text-align: center;
+    margin: 8px 0 2px;
+    letter-spacing: 0.02em;
+  }
+  .sub { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 0 0 16px; }
+  #status {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    min-height: 3.2em;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+  #status .state { font-weight: 600; }
+  #status .detail { color: var(--muted); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  button.cmc {
+    font-size: 1.5rem;
+    font-weight: 700;
+    padding: 18px 0;
+    border: none;
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.cmc:active { background: var(--accent-press); }
+  button.cmc:disabled { opacity: 0.35; }
+  .label { display: block; font-size: 0.65rem; font-weight: 400; color: var(--muted); }
+  #last {
+    margin-top: 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    min-height: 1.4em;
+  }
+</style>
+</head>
+<body>
+  <h1>Momir Pocket Printer</h1>
+  <p class="sub">Discard a land &middot; tap a mana value &middot; get a creature</p>
+
+  <div id="status"><span class="state">Connecting&hellip;</span></div>
+
+  <div class="grid" id="grid"></div>
+
+  <div id="last"></div>
+
+<script>
+const CMC_MIN = {{ cmc_min }};
+const CMC_MAX = {{ cmc_max }};
+const grid = document.getElementById('grid');
+const statusBox = document.getElementById('status');
+const lastBox = document.getElementById('last');
+let busy = false;
+
+for (let cmc = CMC_MIN; cmc <= CMC_MAX; cmc++) {
+  const b = document.createElement('button');
+  b.className = 'cmc';
+  b.innerHTML = cmc + '<span class="label">mana value</span>';
+  b.onclick = () => printCmc(cmc, b);
+  grid.appendChild(b);
+}
+
+function setButtonsDisabled(disabled) {
+  document.querySelectorAll('button.cmc').forEach(b => b.disabled = disabled);
+}
+
+function showStatus(state, detail) {
+  statusBox.innerHTML =
+    '<span class="state">' + state + '</span>' +
+    (detail ? '<br><span class="detail">' + detail + '</span>' : '');
+}
+
+async function printCmc(cmc, btn) {
+  if (busy) return;
+  busy = true;
+  setButtonsDisabled(true);
+  showStatus('Summoning…', 'Random creature with mana value ' + cmc);
+  try {
+    const res = await fetch('/print', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cmc})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const c = data.card;
+      const pt = (c.power != null && c.toughness != null) ? ' (' + c.power + '/' + c.toughness + ')' : '';
+      showStatus('Printed: ' + c.name + pt, c.type_line || '');
+      lastBox.textContent = 'Last print: ' + c.name;
+      if (navigator.vibrate) navigator.vibrate(80);
+    } else {
+      showStatus('Nope', data.error || 'Something went wrong');
+    }
+  } catch (e) {
+    showStatus('Connection lost', 'Is the Pi awake and on the same network?');
+  }
+  busy = false;
+  setButtonsDisabled(false);
+}
+
+async function pollStatus() {
+  if (busy) return;
+  try {
+    const res = await fetch('/status');
+    const s = await res.json();
+    if (s.status === 'ready') {
+      showStatus('Ready', s.detail || 'Pick a mana value below');
+    } else if (s.status === 'refreshing') {
+      showStatus('Updating card database…', s.detail);
+    } else if (s.status === 'printing') {
+      showStatus('Printing…', s.detail);
+    } else if (s.status === 'error') {
+      showStatus('Error', s.detail);
+    }
+    if (s.last_card && !lastBox.textContent) {
+      lastBox.textContent = 'Last print: ' + s.last_card.name;
+    }
+  } catch (e) {
+    showStatus('Connecting…', 'Waiting for the printer service');
+  }
+}
+pollStatus();
+setInterval(pollStatus, 3000);
+</script>
+</body>
+</html>
