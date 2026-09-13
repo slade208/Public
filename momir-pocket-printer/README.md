@@ -12,23 +12,30 @@ no GPIO, no breadboard, and no soldering.
 
 ## Hardware
 
-- Raspberry Pi 4 (or any Pi with Bluetooth/USB and network)
+- Raspberry Pi Zero 2 W (the reference build; any Pi with Wi-Fi and
+  Bluetooth works — a Pi 3/4 is fine, just hungrier on the power bank)
 - GOOJPRT PT-210 (or clone) 58mm portable thermal printer — ESC/POS over
   Bluetooth, built-in battery
-- USB power bank for the Pi
+- USB power bank for the Pi (micro-USB cable for a Zero)
+- 32GB+ microSD card
 - 57x30mm thermal paper
 - Your phone (the UI is a web page served by the Pi)
 
 ## Setup
 
-1. Flash Raspberry Pi OS Lite, boot the Pi, and clone this repo onto it
-   (Lite does not ship with git):
+1. Flash **Raspberry Pi OS Lite (64-bit)** with Raspberry Pi Imager. In the
+   customization step set hostname `momir`, enable SSH, set your user, and
+   enter your home Wi-Fi (2.4GHz). Boot, then `ssh <you>@momir.local` and
+   clone this repo (Lite does not ship with git):
 
    ```shell
    sudo apt update && sudo apt install -y git
    git clone https://github.com/slade208/Public.git
    cd Public/momir-pocket-printer
    ```
+
+   (While this project lives on a branch, add
+   `-b claude/thermal-printer-mtg-review-285ysv` to the clone.)
 
 2. Pair the printer (one time):
 
@@ -40,20 +47,22 @@ no GPIO, no breadboard, and no soldering.
    quit
    ```
 
-3. Put the printer's MAC in `src/config.ini` under `[PRINTER] bluetooth_mac`.
+3. Edit `src/config.ini`: the printer's MAC into `[PRINTER] bluetooth_mac`,
+   and change `[ACCESS] admin_pin` from the default.
 
 4. Run setup (installs deps, binds the printer to `/dev/rfcomm0` at boot,
-   installs a systemd service that starts the app on boot):
+   installs the app service, the `momir` CLI, the login banner, and the
+   rescue-hotspot watchdog):
 
    ```shell
-   cd momir-pocket-printer
    chmod +x setup.sh
    sudo ./setup.sh
    ```
 
-5. Open `http://<pi-address>:8080` on your phone. The first boot downloads
-   the Scryfall card database (creature JSON + dithered art), which takes a
-   while; the page shows progress. After that, updates are incremental.
+5. Open `http://momir.local:8080` on your phone (or the Pi's IP). The first
+   run downloads the Scryfall card database (creature JSON + dithered art),
+   which takes a while; the page shows progress. After that, updates are
+   incremental.
 
 ### Hotspot mode (play anywhere, let friends print)
 
