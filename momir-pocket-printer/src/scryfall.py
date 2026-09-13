@@ -276,14 +276,22 @@ class Scryfall:
         headers = self._get_request_headers()
         url = f"{self.base_url}{self.bulk_data_endpoint}"
 
-        try:
-            response = requests.get(
-                url, headers=headers, timeout=self.REQUEST_TIMEOUT)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            logger.error(f"Error fetching bulk metadata from {url}: {e}")
-            raise
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = requests.get(
+                    url, headers=headers, timeout=self.REQUEST_TIMEOUT)
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as e:
+                if attempt < self.max_retries:
+                    wait = 2 ** attempt  # 1s, 2s, 4s...
+                    logger.warning(
+                        f"Bulk metadata fetch failed ({type(e).__name__}). "
+                        f"Retry {attempt + 1}/{self.max_retries} in {wait}s: {url}")
+                    sleep(wait)
+                else:
+                    logger.error(f"Error fetching bulk metadata from {url}: {e}")
+                    raise
 
     def _get_bulk_download(self, bulk_metadata: Dict[str, Any]) -> tuple:
         """Resolve the bulk file download URI, preferring the JSONL format.
