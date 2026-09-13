@@ -29,7 +29,7 @@ BT_MAC="$(get_config PRINTER bluetooth_mac)"
 
 echo "==> Installing system packages..."
 apt-get update -qq
-apt-get install -y -qq python3-venv python3-pip bluez libopenjp2-7
+apt-get install -y -qq git python3-venv python3-pip bluez libopenjp2-7
 
 echo "==> Creating Python virtual environment..."
 sudo -u "$RUN_USER" python3 -m venv "$PROJECT_DIR/.venv"

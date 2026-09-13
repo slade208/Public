@@ -21,7 +21,14 @@ no GPIO, no breadboard, and no soldering.
 
 ## Setup
 
-1. Flash Raspberry Pi OS Lite, boot the Pi, clone this repo onto it.
+1. Flash Raspberry Pi OS Lite, boot the Pi, and clone this repo onto it
+   (Lite does not ship with git):
+
+   ```shell
+   sudo apt update && sudo apt install -y git
+   git clone https://github.com/slade208/Public.git
+   cd Public/momir-pocket-printer
+   ```
 
 2. Pair the printer (one time):
 
