@@ -87,6 +87,19 @@ EOF
     fi
 fi
 
+echo "==> Disabling Wi-Fi power saving (causes stalls/timeouts on Pi Zero)..."
+if [[ -d /etc/NetworkManager/conf.d ]]; then
+    cat > /etc/NetworkManager/conf.d/momir-wifi-powersave.conf <<'EOF'
+# Installed by momir-pocket-printer setup.sh. Wi-Fi power saving causes
+# intermittent connection stalls on Pi Zero W hardware; 2 = disable.
+[connection]
+wifi.powersave = 2
+EOF
+    nmcli general reload 2>/dev/null || systemctl reload NetworkManager 2>/dev/null || true
+fi
+PS_IFACE="$(get_config WIFI ap_interface)"
+iw "${PS_IFACE:-wlan0}" set power_save off 2>/dev/null || true
+
 echo "==> Installing hotspot helper (phone-toggleable hotspot)..."
 install -m 755 "$PROJECT_DIR/scripts/momir-hotspot" /usr/local/bin/momir-hotspot
 echo "MOMIR_CONFIG=$CONFIG_FILE" > /etc/momir-pocket-printer.env

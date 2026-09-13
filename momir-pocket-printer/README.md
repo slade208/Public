@@ -163,6 +163,27 @@ sudo systemctl restart momir-pocket-printer.service  # after config changes
 sudo systemctl status momir-rfcomm.service           # bluetooth binding
 ```
 
+## Troubleshooting
+
+**Wi-Fi stalls or timeouts (especially Pi Zero):** the Zero's Wi-Fi
+power-saving mode is notorious for causing intermittent read timeouts and
+dropped connections. `setup.sh` disables it system-wide (it writes
+`/etc/NetworkManager/conf.d/momir-wifi-powersave.conf` with
+`wifi.powersave = 2`). To check or apply it manually:
+
+```shell
+iw wlan0 get power_save              # should say: Power save: off
+sudo iw wlan0 set power_save off     # immediate, until reboot
+```
+
+**Card downloads failing:** transient Scryfall/Wi-Fi errors retry
+automatically; just re-run `momir update` if a run dies - it resumes
+incrementally and skips everything already downloaded.
+
+**Printer won't print:** check the Bluetooth binding with
+`sudo systemctl status momir-rfcomm` - it auto-reconnects every 10s while
+the printer is off or out of range. `momir logs` shows both services live.
+
 ## Momir Basic rules
 
 - 2 players, 24 starting life, 60+ basic lands as your deck
