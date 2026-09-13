@@ -34,8 +34,6 @@ no GPIO, no breadboard, and no soldering.
    cd Public/momir-pocket-printer
    ```
 
-   (While this project lives on a branch, add
-   `-b claude/thermal-printer-mtg-review-285ysv` to the clone.)
 
 2. Pair the printer (one time):
 
