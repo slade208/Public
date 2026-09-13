@@ -73,8 +73,10 @@ no GPIO, no breadboard, and no soldering.
    ```
 
    Tip: you can run the download *before* your printer arrives - do steps
-   1 and 4 (setup stops early without a printer MAC, that's fine), then
-   run `momir update` inside `tmux` and let it finish overnight. If the
+   1 and 4 (without a printer MAC, setup installs everything except the
+   printer link and ends with pairing instructions - the web app is
+   already up), then run `momir update` inside `tmux` and let it finish
+   overnight. If the
    download dies partway, just run it again - it resumes where it left
    off. After the first sync, updates are incremental and take minutes.
 
