@@ -35,58 +35,6 @@ echo "==> Creating Python virtual environment..."
 sudo -u "$RUN_USER" python3 -m venv "$PROJECT_DIR/.venv"
 sudo -u "$RUN_USER" "$PROJECT_DIR/.venv/bin/pip" install --quiet -r "$PROJECT_DIR/requirements.txt"
 
-if [[ "$CONNECTION_MODE" == "bluetooth" ]]; then
-    if [[ -z "$BT_MAC" || "$BT_MAC" == "00:00:00:00:00:00" ]]; then
-        cat <<'EOF'
-!! bluetooth_mac is not set in src/config.ini.
-
-   Find your printer's MAC address first:
-     1. Turn the printer on.
-     2. Run: bluetoothctl
-     3. In the prompt: scan on
-     4. Look for a device named PT-210 (or similar) and note its MAC.
-     5. Still in bluetoothctl: pair <MAC>   (PIN is usually 0000 or 1234)
-        then: trust <MAC>, then: quit
-     6. Put the MAC in src/config.ini under [PRINTER] bluetooth_mac.
-     7. Re-run: sudo ./setup.sh
-EOF
-        exit 1
-    fi
-
-    echo "==> Installing rfcomm binding service for $BT_MAC..."
-    cat > "/etc/systemd/system/$RFCOMM_SERVICE_NAME.service" <<EOF
-[Unit]
-Description=Bind PT-210 thermal printer to /dev/rfcomm0
-After=bluetooth.service
-Requires=bluetooth.service
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/rfcomm connect 0 $BT_MAC 1
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    systemctl daemon-reload
-    systemctl enable --now "$RFCOMM_SERVICE_NAME.service"
-elif [[ "$CONNECTION_MODE" == "usb" ]]; then
-    echo "==> USB mode: granting $RUN_USER access to USB printers (plugdev)..."
-    usermod -aG plugdev "$RUN_USER" || true
-    VENDOR_ID="$(get_config PRINTER vendor_id | sed 's/^0x//')"
-    PRODUCT_ID="$(get_config PRINTER product_id | sed 's/^0x//')"
-    if [[ -n "$VENDOR_ID" && "$VENDOR_ID" != "0000" ]]; then
-        cat > /etc/udev/rules.d/99-momir-printer.rules <<EOF
-SUBSYSTEM=="usb", ATTRS{idVendor}=="$VENDOR_ID", ATTRS{idProduct}=="$PRODUCT_ID", MODE="0666"
-EOF
-        udevadm control --reload-rules
-        udevadm trigger
-    else
-        echo "!! Set vendor_id/product_id in src/config.ini (from lsusb), then re-run setup."
-    fi
-fi
-
 echo "==> Disabling Wi-Fi power saving (causes stalls/timeouts on Pi Zero)..."
 if [[ -d /etc/NetworkManager/conf.d ]]; then
     cat > /etc/NetworkManager/conf.d/momir-wifi-powersave.conf <<'EOF'
@@ -136,6 +84,61 @@ fi
 echo "$RUN_USER ALL=(root) NOPASSWD: /usr/local/bin/momir-hotspot" \
     > /etc/sudoers.d/momir-pocket-printer
 chmod 440 /etc/sudoers.d/momir-pocket-printer
+
+if [[ "$CONNECTION_MODE" == "bluetooth" ]]; then
+    if [[ -z "$BT_MAC" || "$BT_MAC" == "00:00:00:00:00:00" ]]; then
+        cat <<'EOF'
+!! bluetooth_mac is not set in src/config.ini.
+
+   Find your printer's MAC address first:
+     1. Turn the printer on.
+     2. Run: bluetoothctl
+     3. In the prompt: scan on
+     4. Look for a device named PT-210 (or similar) and note its MAC.
+     5. Still in bluetoothctl: pair <MAC>   (PIN is usually 0000 or 1234)
+        then: trust <MAC>, then: quit
+     6. Put the MAC in src/config.ini under [PRINTER] bluetooth_mac.
+     7. Re-run: sudo ./setup.sh
+
+   No printer yet? Everything else is already installed - you can
+   pre-download the card database now with: momir update
+EOF
+        exit 1
+    fi
+
+    echo "==> Installing rfcomm binding service for $BT_MAC..."
+    cat > "/etc/systemd/system/$RFCOMM_SERVICE_NAME.service" <<EOF
+[Unit]
+Description=Bind PT-210 thermal printer to /dev/rfcomm0
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rfcomm connect 0 $BT_MAC 1
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now "$RFCOMM_SERVICE_NAME.service"
+elif [[ "$CONNECTION_MODE" == "usb" ]]; then
+    echo "==> USB mode: granting $RUN_USER access to USB printers (plugdev)..."
+    usermod -aG plugdev "$RUN_USER" || true
+    VENDOR_ID="$(get_config PRINTER vendor_id | sed 's/^0x//')"
+    PRODUCT_ID="$(get_config PRINTER product_id | sed 's/^0x//')"
+    if [[ -n "$VENDOR_ID" && "$VENDOR_ID" != "0000" ]]; then
+        cat > /etc/udev/rules.d/99-momir-printer.rules <<EOF
+SUBSYSTEM=="usb", ATTRS{idVendor}=="$VENDOR_ID", ATTRS{idProduct}=="$PRODUCT_ID", MODE="0666"
+EOF
+        udevadm control --reload-rules
+        udevadm trigger
+    else
+        echo "!! Set vendor_id/product_id in src/config.ini (from lsusb), then re-run setup."
+    fi
+fi
 
 AP_ENABLED="$(get_config WIFI ap_enabled | tr '[:upper:]' '[:lower:]')"
 if [[ "$AP_ENABLED" == "true" ]]; then
