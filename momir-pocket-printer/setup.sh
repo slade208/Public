@@ -87,49 +87,29 @@ EOF
     fi
 fi
 
+echo "==> Installing hotspot helper (phone-toggleable hotspot)..."
+install -m 755 "$PROJECT_DIR/scripts/momir-hotspot" /usr/local/bin/momir-hotspot
+echo "MOMIR_CONFIG=$CONFIG_FILE" > /etc/momir-pocket-printer.env
+# Allow the app user to run exactly this helper as root, nothing else.
+echo "$RUN_USER ALL=(root) NOPASSWD: /usr/local/bin/momir-hotspot" \
+    > /etc/sudoers.d/momir-pocket-printer
+chmod 440 /etc/sudoers.d/momir-pocket-printer
+
 AP_ENABLED="$(get_config WIFI ap_enabled | tr '[:upper:]' '[:lower:]')"
 if [[ "$AP_ENABLED" == "true" ]]; then
-    AP_SSID="$(get_config WIFI ap_ssid)"
-    AP_PASSWORD="$(get_config WIFI ap_password)"
-    AP_IFACE="$(get_config WIFI ap_interface)"
-    AP_IFACE="${AP_IFACE:-wlan0}"
-
     if ! command -v nmcli >/dev/null; then
-        echo "!! nmcli not found. AP mode needs NetworkManager (default on Raspberry Pi OS Bookworm)."
+        echo "!! nmcli not found. Hotspot mode needs NetworkManager (default on Raspberry Pi OS)."
         exit 1
     fi
-    if [[ -z "$AP_SSID" ]]; then
-        echo "!! ap_ssid is empty in src/config.ini"
-        exit 1
-    fi
-    if [[ ${#AP_PASSWORD} -lt 8 || ${#AP_PASSWORD} -gt 63 ]]; then
-        echo "!! ap_password must be 8-63 characters (WPA2 requirement)"
-        exit 1
-    fi
-
-    echo "==> Configuring Wi-Fi access point '$AP_SSID' on $AP_IFACE..."
+    echo "==> Starting Wi-Fi hotspot..."
     echo "    NOTE: if you are SSHed in over Wi-Fi, this will drop your connection."
-    echo "    The Pi will then be at http://10.42.0.1:8080 on the '$AP_SSID' network."
-    if nmcli -t -f NAME con show | grep -qx momir-ap; then
-        nmcli con modify momir-ap 802-11-wireless.ssid "$AP_SSID" wifi-sec.psk "$AP_PASSWORD"
-    else
-        nmcli con add type wifi ifname "$AP_IFACE" con-name momir-ap autoconnect yes ssid "$AP_SSID"
-        nmcli con modify momir-ap \
-            802-11-wireless.mode ap \
-            802-11-wireless.band bg \
-            ipv4.method shared \
-            ipv4.addresses 10.42.0.1/24 \
-            ipv6.method disabled \
-            connection.autoconnect-priority 100 \
-            wifi-sec.key-mgmt wpa-psk \
-            wifi-sec.psk "$AP_PASSWORD"
-    fi
-    nmcli con up momir-ap || echo "!! Hotspot will start on next boot."
+    echo "    The Pi will then be at http://10.42.0.1:8080 on the hotspot network."
+    /usr/local/bin/momir-hotspot on || echo "!! Hotspot will start on next boot."
 else
-    # AP previously enabled and now turned off in config? Remove the profile.
-    if command -v nmcli >/dev/null && nmcli -t -f NAME con show | grep -qx momir-ap; then
-        echo "==> ap_enabled is False: removing existing hotspot profile..."
-        nmcli con delete momir-ap || true
+    # Leave any existing profile in place but inactive; the host can toggle
+    # the hotspot from the web app's host panel at any time.
+    if command -v nmcli >/dev/null; then
+        /usr/local/bin/momir-hotspot off || true
     fi
 fi
 

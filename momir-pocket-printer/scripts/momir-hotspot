@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Momir Pocket Printer hotspot control. Installed to /usr/local/bin by
+# setup.sh and allowed via sudoers so the web app can toggle the hotspot.
+#
+# Usage: momir-hotspot on|off|status
+#   on     - create/refresh the momir-ap profile from config.ini and activate
+#   off    - deactivate the hotspot and disable its autoconnect (the Pi
+#            falls back to its normal Wi-Fi profile)
+#   status - print "active" or "inactive"
+set -euo pipefail
+
+ENV_FILE=/etc/momir-pocket-printer.env
+[[ -f "$ENV_FILE" ]] && . "$ENV_FILE"
+CONFIG_FILE="${MOMIR_CONFIG:?MOMIR_CONFIG not set (missing $ENV_FILE?)}"
+
+get_config() {
+    awk -F' *= *' -v section="[$1]" -v key="$2" '
+        $0 == section { in_section=1; next }
+        /^\[/ { in_section=0 }
+        in_section && $1 == key { print $2; exit }
+    ' "$CONFIG_FILE"
+}
+
+profile_exists() { nmcli -t -f NAME con show | grep -qx momir-ap; }
+
+case "${1:-status}" in
+    on)
+        AP_SSID="$(get_config WIFI ap_ssid)"
+        AP_PASSWORD="$(get_config WIFI ap_password)"
+        AP_IFACE="$(get_config WIFI ap_interface)"
+        AP_IFACE="${AP_IFACE:-wlan0}"
+
+        if [[ -z "$AP_SSID" ]]; then
+            echo "ap_ssid is empty in $CONFIG_FILE" >&2; exit 1
+        fi
+        if [[ ${#AP_PASSWORD} -lt 8 || ${#AP_PASSWORD} -gt 63 ]]; then
+            echo "ap_password must be 8-63 characters" >&2; exit 1
+        fi
+
+        if profile_exists; then
+            nmcli con modify momir-ap \
+                802-11-wireless.ssid "$AP_SSID" \
+                wifi-sec.psk "$AP_PASSWORD" \
+                connection.autoconnect yes
+        else
+            nmcli con add type wifi ifname "$AP_IFACE" con-name momir-ap \
+                autoconnect yes ssid "$AP_SSID"
+            nmcli con modify momir-ap \
+                802-11-wireless.mode ap \
+                802-11-wireless.band bg \
+                ipv4.method shared \
+                ipv4.addresses 10.42.0.1/24 \
+                ipv6.method disabled \
+                connection.autoconnect-priority 100 \
+                wifi-sec.key-mgmt wpa-psk \
+                wifi-sec.psk "$AP_PASSWORD"
+        fi
+        nmcli con up momir-ap
+        ;;
+    off)
+        if profile_exists; then
+            # autoconnect off so the hotspot stays off across reboots until
+            # explicitly turned back on; NM then activates the home profile.
+            nmcli con modify momir-ap connection.autoconnect no
+            nmcli con down momir-ap 2>/dev/null || true
+        fi
+        ;;
+    status)
+        if nmcli -t -f NAME con show --active 2>/dev/null | grep -qx momir-ap; then
+            echo active
+        else
+            echo inactive
+        fi
+        ;;
+    *)
+        echo "usage: momir-hotspot on|off|status" >&2; exit 2
+        ;;
+esac

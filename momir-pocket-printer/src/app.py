@@ -10,6 +10,7 @@ import configparser
 import json
 import logging
 import secrets
+import subprocess
 import sys
 import threading
 import time
@@ -231,8 +232,13 @@ def host_set_status():
     return jsonify({'ok': True})
 
 
-def _startup_refresh() -> None:
-    """Refresh the local Scryfall card database in the background on boot."""
+_refresh_lock = threading.Lock()
+
+
+def _run_refresh() -> None:
+    """Refresh the local Scryfall card database (runs in a worker thread)."""
+    if not _refresh_lock.acquire(blocking=False):
+        return
     try:
         if scryfall.get_total_card_count() == 0:
             _set_state('refreshing',
@@ -248,12 +254,53 @@ def _startup_refresh() -> None:
         logger.error(f"Card data refresh failed: {e}")
         # Stale data is still playable; only hard-fail with an empty library.
         if scryfall.get_total_card_count() > 0:
-            _set_state('ready', 'Using existing card data (refresh failed).')
+            _set_state('ready', 'Using existing card data (refresh failed - '
+                                'no internet in hotspot mode is normal).')
         else:
             _set_state('error', f'Card database download failed: {e}')
     finally:
         with _state_lock:
             _state['refresh_done'] = True
+        _refresh_lock.release()
+
+
+# ===== Hotspot control =====
+# The hotspot is switched by a root-owned helper (installed by setup.sh)
+# that sudoers allows this app's user to run without a password. State is
+# read live from NetworkManager rather than from config.
+
+HOTSPOT_HELPER = '/usr/local/bin/momir-hotspot'
+
+
+def _hotspot_active():
+    """Return True/False if hotspot state can be determined, else None."""
+    try:
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'NAME', 'con', 'show', '--active'],
+            capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            return None
+        return 'momir-ap' in result.stdout.splitlines()
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _apply_hotspot(enabled: bool) -> None:
+    """Toggle the hotspot after a short delay so the HTTP response escapes
+    the network before it changes underneath the client."""
+    time.sleep(1.5)
+    action = 'on' if enabled else 'off'
+    try:
+        result = subprocess.run(
+            ['sudo', '-n', HOTSPOT_HELPER, action],
+            capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            logger.info(f"Hotspot switched {action}")
+        else:
+            logger.error(
+                f"Hotspot {action} failed: {result.stderr.strip() or result.stdout.strip()}")
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.error(f"Hotspot {action} failed: {e}")
 
 
 @app.route('/')
@@ -266,6 +313,41 @@ def status():
     with _state_lock:
         payload = dict(_state)
     return jsonify(payload)
+
+
+@app.route('/host/update-cards', methods=['POST'])
+def host_update_cards():
+    err = _require('host')
+    if err:
+        return err
+    if _refresh_lock.locked():
+        return jsonify({'ok': False, 'error': 'An update is already running'}), 409
+    threading.Thread(target=_run_refresh, daemon=True).start()
+    return jsonify({'ok': True})
+
+
+@app.route('/host/hotspot')
+def host_hotspot_status():
+    err = _require('host')
+    if err:
+        return err
+    active = _hotspot_active()
+    ssid = wifi_config.get('ap_ssid', fallback='') if wifi_config else ''
+    return jsonify({'ok': True, 'supported': active is not None,
+                    'active': bool(active), 'ssid': ssid})
+
+
+@app.route('/host/hotspot', methods=['POST'])
+def host_hotspot_toggle():
+    err = _require('host')
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    enabled = data.get('enabled')
+    if not isinstance(enabled, bool):
+        return jsonify({'ok': False, 'error': 'enabled must be true or false'}), 400
+    threading.Thread(target=_apply_hotspot, args=(enabled,), daemon=True).start()
+    return jsonify({'ok': True, 'applying': 'on' if enabled else 'off'})
 
 
 @app.route('/print', methods=['POST'])
@@ -331,7 +413,13 @@ def print_wifi_ticket():
         return err
     ssid = ''
     password = ''
-    if wifi_config is not None and wifi_config.getboolean('ap_enabled', fallback=False):
+    # Include Wi-Fi join info when the hotspot is actually active right now
+    # (falling back to the config flag when NetworkManager can't be queried).
+    active = _hotspot_active()
+    hotspot_on = (active if active is not None else
+                  (wifi_config is not None
+                   and wifi_config.getboolean('ap_enabled', fallback=False)))
+    if hotspot_on and wifi_config is not None:
         ssid = wifi_config.get('ap_ssid', fallback='')
         password = wifi_config.get('ap_password', fallback='')
 
@@ -353,7 +441,7 @@ def print_wifi_ticket():
 
 
 def main() -> None:
-    threading.Thread(target=_startup_refresh, daemon=True).start()
+    threading.Thread(target=_run_refresh, daemon=True).start()
     host = app_config.get('listen_host', fallback='0.0.0.0')
     port = app_config.getint('listen_port', fallback=8080)
     logger.info(f"Momir Pocket Printer listening on http://{host}:{port}")

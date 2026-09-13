@@ -80,8 +80,19 @@ anyone at the table joins the Pi's Wi-Fi and gets the print page.
    table.
 
 While in hotspot mode the app skips card database refreshes and plays from
-local data (plug in Ethernet if you want updates without leaving AP mode).
-To go back to normal Wi-Fi, set `ap_enabled = False` and re-run setup.
+local data. **After the first setup you never need SSH for mode switching:**
+the host panel in the web app has a `Hotspot: on/off` toggle that flips the
+Pi between hotspot and home Wi-Fi (heads-up prompts tell you where to
+reconnect). `ap_enabled` in config just controls the state after running
+setup.sh; day to day, use the toggle.
+
+## Updating for new sets
+
+The app checks Scryfall on every service start and syncs incrementally
+(only new cards download - minutes, not hours). When a new set drops:
+be in home mode (internet), then either tap **Update cards** on the host
+panel or restart the service / power-cycle the Pi. In hotspot mode the
+check is skipped gracefully and play continues on local data.
 
 ### Controlling who can print
 

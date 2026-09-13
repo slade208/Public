@@ -139,6 +139,22 @@
   }
   .device-row button.ok { background: var(--accent-press); }
   .device-row button.no { background: #6e3030; }
+  .host-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .host-actions button {
+    flex: 1;
+    border: 1px solid var(--muted);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    padding: 8px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .host-actions button:active { border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -159,6 +175,10 @@
 
   <div id="main" hidden>
     <div id="hostPanel" hidden>
+      <div class="host-actions">
+        <button id="updateCards">Update cards</button>
+        <button id="hotspotToggle" hidden>Hotspot: &hellip;</button>
+      </div>
       <p class="panel-title">Players</p>
       <div id="deviceList"></div>
     </div>
@@ -336,8 +356,53 @@ async function renderHostPanel() {
     row.appendChild(btn);
     deviceList.appendChild(row);
   });
-  show(hostPanel, deviceList.children.length > 0);
+  show(hostPanel, true);
 }
+
+async function refreshHotspot() {
+  const btn = document.getElementById('hotspotToggle');
+  try {
+    const res = await fetch('/host/hotspot');
+    if (!res.ok) return;
+    const h = await res.json();
+    if (!h.supported) { btn.hidden = true; return; }
+    btn.hidden = false;
+    btn.textContent = 'Hotspot: ' + (h.active ? 'ON' : 'off');
+    btn.dataset.active = h.active ? '1' : '';
+    btn.dataset.ssid = h.ssid || 'the hotspot';
+  } catch (e) { /* leave as-is */ }
+}
+
+document.getElementById('updateCards').onclick = async () => {
+  const res = await fetch('/host/update-cards', {method: 'POST'});
+  const data = await res.json();
+  showStatus(data.ok ? 'Checking Scryfall for new cards…' : 'Nope',
+             data.ok ? 'Needs internet - works in home mode' : (data.error || ''));
+};
+
+document.getElementById('hotspotToggle').onclick = async () => {
+  const btn = document.getElementById('hotspotToggle');
+  const turningOn = !btn.dataset.active;
+  const msg = turningOn
+    ? 'Turn the hotspot ON?\n\nThis Pi will leave your home Wi-Fi. Reconnect '
+      + 'your phone to "' + btn.dataset.ssid + '" and open http://10.42.0.1:8080'
+    : 'Turn the hotspot OFF?\n\nEveryone on the hotspot loses the page. The Pi '
+      + 'rejoins home Wi-Fi - reach it at http://momir.local:8080';
+  if (!confirm(msg)) return;
+  const res = await fetch('/host/hotspot', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: turningOn})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showStatus('Switching networks in a moment…',
+               turningOn ? 'Join "' + btn.dataset.ssid + '" then open http://10.42.0.1:8080'
+                         : 'Reconnect at http://momir.local:8080');
+  } else {
+    showStatus('Nope', data.error || 'Toggle failed');
+  }
+};
 
 async function setStatus(id, status) {
   await fetch('/host/set-status', {
@@ -368,6 +433,7 @@ async function refreshRole() {
          meInfo.access_control && myRole !== 'host');
     if (myRole === 'host') {
       renderHostPanel();
+      refreshHotspot();
       if (!hostPanelPoller) hostPanelPoller = setInterval(renderHostPanel, 5000);
     }
   } catch (e) {
