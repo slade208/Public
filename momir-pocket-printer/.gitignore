@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+momir-pocket-printer/.venv/
+momir-pocket-printer/cards/
+devices.json

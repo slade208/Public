@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Momir Pocket Printer</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1e222c;
+    --accent: #4caf7d;
+    --accent-press: #3b8a63;
+    --text: #e8e8e8;
+    --muted: #8a8f9c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 480px;
+    margin-inline: auto;
+  }
+  h1 {
+    font-size: 1.25rem;
+    text-align: center;
+    margin: 8px 0 2px;
+    letter-spacing: 0.02em;
+  }
+  .sub { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 0 0 16px; }
+  #status {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    min-height: 3.2em;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+  #status .state { font-weight: 600; }
+  #status .detail { color: var(--muted); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  button.cmc {
+    font-size: 1.5rem;
+    font-weight: 700;
+    padding: 18px 0;
+    border: none;
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.cmc:active { background: var(--accent-press); }
+  button.cmc:disabled { opacity: 0.35; }
+  .label { display: block; font-size: 0.65rem; font-weight: 400; color: var(--muted); }
+  #last {
+    margin-top: 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    min-height: 1.4em;
+  }
+  #ticket {
+    display: block;
+    margin: 20px auto 8px;
+    padding: 10px 18px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--panel);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #ticket:active { color: var(--text); border-color: var(--accent); }
+  .gate-text { text-align: center; color: var(--muted); }
+  #playerName {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--panel);
+    background: var(--panel);
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  button.wide {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #10231a;
+    cursor: pointer;
+  }
+  button.linkish {
+    display: block;
+    margin: 24px auto 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    text-decoration: underline;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  #hostPanel {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+  .panel-title { margin: 2px 0 8px; font-size: 0.8rem; color: var(--muted); }
+  .device-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.9rem;
+  }
+  .device-row .who { flex: 1; }
+  .device-row .tag { color: var(--muted); font-size: 0.75rem; margin-left: 6px; }
+  .device-row button {
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .device-row button.ok { background: var(--accent-press); }
+  .device-row button.no { background: #6e3030; }
+  .host-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .host-actions button {
+    flex: 1;
+    border: 1px solid var(--muted);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    padding: 8px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .host-actions button:active { border-color: var(--accent); }
+</style>
+</head>
+<body>
+  <h1>Momir Pocket Printer</h1>
+  <p class="sub">Discard a land &middot; tap a mana value &middot; get a creature</p>
+
+  <div id="gate" hidden>
+    <div id="joinForm">
+      <p class="gate-text">Ask the host to let you print:</p>
+      <input id="playerName" type="text" maxlength="24" placeholder="Your name" autocomplete="off">
+      <button id="joinBtn" class="wide">Ask to join</button>
+    </div>
+    <div id="waiting" hidden>
+      <p class="gate-text">Waiting for the host to approve you&hellip;</p>
+    </div>
+    <button id="hostLink" class="linkish">I'm the host</button>
+  </div>
+
+  <div id="main" hidden>
+    <div id="hostPanel" hidden>
+      <div class="host-actions">
+        <button id="updateCards">Update cards</button>
+        <button id="hotspotToggle" hidden>Hotspot: &hellip;</button>
+        <button id="setWifi">Home Wi-Fi</button>
+      </div>
+      <p class="panel-title">Players</p>
+      <div id="deviceList"></div>
+    </div>
+
+    <div id="status"><span class="state">Connecting&hellip;</span></div>
+
+    <div class="grid" id="grid"></div>
+
+    <div id="last"></div>
+
+    <button id="ticket">Print Wi-Fi join ticket</button>
+    <button id="hostLink2" class="linkish" hidden>I'm the host</button>
+  </div>
+
+<script>
+const CMC_MIN = {{ cmc_min }};
+const CMC_MAX = {{ cmc_max }};
+const grid = document.getElementById('grid');
+const statusBox = document.getElementById('status');
+const lastBox = document.getElementById('last');
+let busy = false;
+
+for (let cmc = CMC_MIN; cmc <= CMC_MAX; cmc++) {
+  const b = document.createElement('button');
+  b.className = 'cmc';
+  b.innerHTML = cmc + '<span class="label">mana value</span>';
+  b.onclick = () => printCmc(cmc, b);
+  grid.appendChild(b);
+}
+
+function setButtonsDisabled(disabled) {
+  document.querySelectorAll('button.cmc').forEach(b => b.disabled = disabled);
+}
+
+function showStatus(state, detail) {
+  statusBox.innerHTML =
+    '<span class="state">' + state + '</span>' +
+    (detail ? '<br><span class="detail">' + detail + '</span>' : '');
+}
+
+async function printCmc(cmc, btn) {
+  if (busy) return;
+  busy = true;
+  setButtonsDisabled(true);
+  showStatus('Summoning…', 'Random creature with mana value ' + cmc);
+  try {
+    const res = await fetch('/print', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cmc})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const c = data.card;
+      const pt = (c.power != null && c.toughness != null) ? ' (' + c.power + '/' + c.toughness + ')' : '';
+      showStatus('Printed: ' + c.name + pt, c.type_line || '');
+      lastBox.textContent = 'Last print: ' + c.name;
+      if (navigator.vibrate) navigator.vibrate(80);
+    } else {
+      showStatus('Nope', data.error || 'Something went wrong');
+    }
+  } catch (e) {
+    showStatus('Connection lost', 'Is the Pi awake and on the same network?');
+  }
+  busy = false;
+  setButtonsDisabled(false);
+}
+
+document.getElementById('ticket').onclick = async () => {
+  if (busy) return;
+  busy = true;
+  showStatus('Printing join ticket…', '');
+  try {
+    const res = await fetch('/print-ticket', {method: 'POST'});
+    const data = await res.json();
+    showStatus(data.ok ? 'Ticket printed' : 'Nope', data.ok ? 'Hand it to the table' : (data.error || ''));
+  } catch (e) {
+    showStatus('Connection lost', '');
+  }
+  busy = false;
+};
+
+async function pollStatus() {
+  if (busy) return;
+  try {
+    const res = await fetch('/status');
+    const s = await res.json();
+    if (s.status === 'ready') {
+      showStatus('Ready', s.detail || 'Pick a mana value below');
+    } else if (s.status === 'refreshing') {
+      showStatus('Updating card database…', s.detail);
+    } else if (s.status === 'printing') {
+      showStatus('Printing…', s.detail);
+    } else if (s.status === 'error') {
+      showStatus('Error', s.detail);
+    }
+    if (s.last_card && !lastBox.textContent) {
+      lastBox.textContent = 'Last print: ' + s.last_card.name;
+    }
+  } catch (e) {
+    showStatus('Connecting…', 'Waiting for the printer service');
+  }
+}
+// ===== Access control flow =====
+const gate = document.getElementById('gate');
+const main = document.getElementById('main');
+const joinForm = document.getElementById('joinForm');
+const waiting = document.getElementById('waiting');
+const hostPanel = document.getElementById('hostPanel');
+const deviceList = document.getElementById('deviceList');
+let myRole = null;
+let hostPoller = null;
+let hostPanelPoller = null;
+
+function show(el, on) { el.hidden = !on; }
+
+async function hostLogin() {
+  const pin = prompt('Host PIN:');
+  if (!pin) return;
+  const name = prompt('Name this device (e.g. "Steve\'s phone"):', 'Host') || 'Host';
+  const res = await fetch('/host/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pin, name})
+  });
+  const data = await res.json();
+  if (data.ok) { await refreshRole(); }
+  else { alert(data.error || 'Login failed'); }
+}
+document.getElementById('hostLink').onclick = hostLogin;
+document.getElementById('hostLink2').onclick = hostLogin;
+
+document.getElementById('joinBtn').onclick = async () => {
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+  await fetch('/register', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name})
+  });
+  await refreshRole();
+};
+
+async function renderHostPanel() {
+  const res = await fetch('/host/devices');
+  if (!res.ok) return;
+  const data = await res.json();
+  deviceList.innerHTML = '';
+  data.devices.forEach(d => {
+    if (d.status === 'host') return;
+    const row = document.createElement('div');
+    row.className = 'device-row';
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = d.name;
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = d.status;
+    who.appendChild(tag);
+    row.appendChild(who);
+    const btn = document.createElement('button');
+    if (d.status === 'approved') {
+      btn.textContent = 'Kick';
+      btn.className = 'no';
+      btn.onclick = () => setStatus(d.id, 'denied');
+    } else {
+      btn.textContent = 'Approve';
+      btn.className = 'ok';
+      btn.onclick = () => setStatus(d.id, 'approved');
+      if (d.status === 'denied') {
+        const label = document.createElement('span');
+        label.className = 'tag';
+        row.appendChild(label);
+      }
+    }
+    row.appendChild(btn);
+    deviceList.appendChild(row);
+  });
+  show(hostPanel, true);
+}
+
+document.getElementById('setWifi').onclick = async () => {
+  const ssid = prompt('Home Wi-Fi network name (SSID):');
+  if (!ssid) return;
+  const password = prompt('Wi-Fi password (leave empty for an open network):') || '';
+  const res = await fetch('/host/wifi', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ssid, password})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showStatus('Home Wi-Fi saved: ' + ssid,
+               'The Pi joins it whenever the hotspot is off');
+  } else {
+    showStatus('Nope', data.error || 'Could not save Wi-Fi');
+  }
+};
+
+async function refreshHotspot() {
+  const btn = document.getElementById('hotspotToggle');
+  try {
+    const res = await fetch('/host/hotspot');
+    if (!res.ok) return;
+    const h = await res.json();
+    if (!h.supported) { btn.hidden = true; return; }
+    btn.hidden = false;
+    btn.textContent = 'Hotspot: ' + (h.active ? 'ON' : 'off');
+    btn.dataset.active = h.active ? '1' : '';
+    btn.dataset.ssid = h.ssid || 'the hotspot';
+  } catch (e) { /* leave as-is */ }
+}
+
+document.getElementById('updateCards').onclick = async () => {
+  const res = await fetch('/host/update-cards', {method: 'POST'});
+  const data = await res.json();
+  showStatus(data.ok ? 'Checking Scryfall for new cards…' : 'Nope',
+             data.ok ? 'Needs internet - works in home mode' : (data.error || ''));
+};
+
+document.getElementById('hotspotToggle').onclick = async () => {
+  const btn = document.getElementById('hotspotToggle');
+  const turningOn = !btn.dataset.active;
+  const msg = turningOn
+    ? 'Turn the hotspot ON?\n\nThis Pi will leave your home Wi-Fi. Reconnect '
+      + 'your phone to "' + btn.dataset.ssid + '" and open http://10.42.0.1:8080'
+    : 'Turn the hotspot OFF?\n\nEveryone on the hotspot loses the page. The Pi '
+      + 'rejoins home Wi-Fi - reach it at http://momir.local:8080';
+  if (!confirm(msg)) return;
+  const res = await fetch('/host/hotspot', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: turningOn})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showStatus('Switching networks in a moment…',
+               turningOn ? 'Join "' + btn.dataset.ssid + '" then open http://10.42.0.1:8080'
+                         : 'Reconnect at http://momir.local:8080');
+  } else {
+    showStatus('Nope', data.error || 'Toggle failed');
+  }
+};
+
+async function setStatus(id, status) {
+  await fetch('/host/set-status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id, status})
+  });
+  renderHostPanel();
+}
+
+async function refreshRole() {
+  try {
+    const res = await fetch('/me');
+    const meInfo = await res.json();
+    myRole = meInfo.role;
+    const allowed = !meInfo.access_control || myRole === 'approved' || myRole === 'host';
+    show(main, allowed);
+    show(gate, !allowed);
+    if (!allowed) {
+      const isPending = myRole === 'pending';
+      show(joinForm, !isPending);
+      show(waiting, isPending);
+      if (!hostPoller) hostPoller = setInterval(refreshRole, 3000);
+      return;
+    }
+    if (hostPoller) { clearInterval(hostPoller); hostPoller = null; }
+    show(document.getElementById('hostLink2'),
+         meInfo.access_control && myRole !== 'host');
+    if (myRole === 'host') {
+      renderHostPanel();
+      refreshHotspot();
+      if (!hostPanelPoller) hostPanelPoller = setInterval(renderHostPanel, 5000);
+    }
+  } catch (e) {
+    setTimeout(refreshRole, 3000);
+  }
+}
+
+refreshRole();
+pollStatus();
+setInterval(pollStatus, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Momir Pocket Printer admin CLI. Installed to /usr/local/bin by setup.sh.
+set -euo pipefail
+
+ENV_FILE=/etc/momir-pocket-printer.env
+[[ -f "$ENV_FILE" ]] && . "$ENV_FILE"
+CONFIG_FILE="${MOMIR_CONFIG:?MOMIR_CONFIG not set (run sudo ./setup.sh)}"
+PROJECT_DIR="$(dirname "$(dirname "$CONFIG_FILE")")"
+SERVICE=momir-pocket-printer
+
+case "${1:-help}" in
+    update)
+        echo "Checking Scryfall for new cards (incremental, needs internet)..."
+        cd "$PROJECT_DIR/src"
+        "$PROJECT_DIR/.venv/bin/python" - <<'PY'
+import configparser, logging
+logging.basicConfig(level='INFO')
+from scryfall import Scryfall
+c = configparser.ConfigParser()
+c.read('config.ini', encoding='utf-8')
+Scryfall(c['SCRYFALL'], c['FILESYSTEM']).refresh_card_data()
+PY
+        ;;
+    pull)
+        cd "$PROJECT_DIR"
+        git pull
+        echo "Restarting service to pick up new code..."
+        sudo systemctl restart "$SERVICE"
+        ;;
+    restart)
+        sudo systemctl restart "$SERVICE"
+        ;;
+    logs)
+        sudo journalctl -u "$SERVICE" -u momir-rfcomm -n 50 -f
+        ;;
+    hotspot)
+        sudo /usr/local/bin/momir-hotspot "${2:-status}"
+        ;;
+    wifi)
+        if [[ -z "${2:-}" ]]; then
+            echo "usage: momir wifi <ssid> [password]"; exit 2
+        fi
+        sudo /usr/local/bin/momir-hotspot wifi-join "$2" "${3:-}"
+        ;;
+    status)
+        systemctl --no-pager --lines=0 status "$SERVICE" || true
+        echo
+        /usr/local/bin/momir-hotspot status | sed 's/^/hotspot: /'
+        ;;
+    help|*)
+        cat <<'EOF'
+momir - Momir Pocket Printer admin commands
+
+  momir update           check Scryfall and download new cards (home mode)
+  momir pull             git pull latest code and restart the service
+  momir restart          restart the app service
+  momir logs             follow app + printer-binding logs
+  momir hotspot on|off   switch to/from hotspot mode (also in web host panel)
+  momir hotspot status   show whether the hotspot is active
+  momir wifi <ssid> [pw] set the home Wi-Fi network (also in web host panel)
+  momir status           service + hotspot status
+
+Config file: src/config.ini (bluetooth_mac, admin_pin, hotspot SSID/password)
+After editing config: sudo ./setup.sh   (re-applies everything)
+Web app: http://10.42.0.1:8080 (hotspot) / http://<pi>.local:8080 (home)
+EOF
+        ;;
+esac
