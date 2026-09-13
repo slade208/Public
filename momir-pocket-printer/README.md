@@ -114,6 +114,25 @@ Pi between hotspot and home Wi-Fi (heads-up prompts tell you where to
 reconnect). `ap_enabled` in config just controls the state after running
 setup.sh; day to day, use the toggle.
 
+## What's in the creature pool
+
+One entry per unique creature name (Scryfall `oracle_cards` - multiple
+printings don't increase a card's odds), filtered to match how Momir
+works officially:
+
+- **In:** every paper-legal, black-border creature in Magic's history -
+  regular sets, Commander products, Modern Horizons-style sets, promos
+- **Out:** Un-sets and other `funny` sets (Unglued, Unhinged, Unstable,
+  Unsanctioned, Unfinity, Mystery Booster playtest cards), gold-border
+  memorabilia, Arena-only/Alchemy cards, and non-creature layouts
+  (tokens, emblems, schemes, vanguards, ...)
+
+The filters live in `src/config.ini` under `[SCRYFALL]` (`excluded_sets`
+by Scryfall set type, `excluded_layouts`). If you loosen them, run
+`momir update` to pull in the newly eligible cards. Rules note: Momir
+summons are token copies - print-outs represent tokens, and anything
+that cares about tokens vs. cards should treat them as tokens.
+
 ## Updating for new sets
 
 The app checks Scryfall on every service start and syncs incrementally
