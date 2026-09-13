@@ -90,6 +90,12 @@ fi
 echo "==> Installing hotspot helper (phone-toggleable hotspot)..."
 install -m 755 "$PROJECT_DIR/scripts/momir-hotspot" /usr/local/bin/momir-hotspot
 echo "MOMIR_CONFIG=$CONFIG_FILE" > /etc/momir-pocket-printer.env
+
+echo "==> Installing momir CLI and login banner..."
+install -m 755 "$PROJECT_DIR/scripts/momir" /usr/local/bin/momir
+if [[ -d /etc/update-motd.d ]]; then
+    install -m 755 "$PROJECT_DIR/scripts/momir-motd" /etc/update-motd.d/50-momir
+fi
 # Allow the app user to run exactly this helper as root, nothing else.
 echo "$RUN_USER ALL=(root) NOPASSWD: /usr/local/bin/momir-hotspot" \
     > /etc/sudoers.d/momir-pocket-printer

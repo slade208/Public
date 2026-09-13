@@ -116,6 +116,20 @@ If your PT-210's USB port does data (many clones do), you can use a cable
 instead of Bluetooth: set `connection_mode = usb` in `src/config.ini`, fill
 in `vendor_id`/`product_id` from `lsusb`, and re-run `sudo ./setup.sh`.
 
+## Day-to-day admin
+
+Setup installs a `momir` command and a login banner: every SSH login shows
+live status (services, network mode, card count) plus any warnings
+(default PIN, unpaired printer) and the command cheat sheet. The commands:
+
+```shell
+momir update           # fetch new cards after a set release (home mode)
+momir pull             # git pull latest code + restart the service
+momir hotspot on|off   # switch network mode (also on the web host panel)
+momir logs             # follow live logs
+momir status           # service + hotspot status
+```
+
 ## Service management
 
 ```shell

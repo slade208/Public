@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Momir Pocket Printer login banner. Installed to /etc/update-motd.d/50-momir
+# by setup.sh; runs on every SSH login. Fast, local checks only - never
+# touches the network.
+
+ENV_FILE=/etc/momir-pocket-printer.env
+[[ -f "$ENV_FILE" ]] && . "$ENV_FILE"
+[[ -n "${MOMIR_CONFIG:-}" && -f "$MOMIR_CONFIG" ]] || exit 0
+PROJECT_DIR="$(dirname "$(dirname "$MOMIR_CONFIG")")"
+
+get_config() {
+    awk -F' *= *' -v section="[$1]" -v key="$2" '
+        $0 == section { in_section=1; next }
+        /^\[/ { in_section=0 }
+        in_section && $1 == key { print $2; exit }
+    ' "$MOMIR_CONFIG"
+}
+
+B=$(tput bold 2>/dev/null || true)
+Y=$(tput setaf 3 2>/dev/null || true)
+G=$(tput setaf 2 2>/dev/null || true)
+R=$(tput setaf 1 2>/dev/null || true)
+N=$(tput sgr0 2>/dev/null || true)
+
+echo
+echo "${B}=== Momir Pocket Printer ===${N}"
+
+# --- Live status -----------------------------------------------------------
+if command -v systemctl >/dev/null; then
+    if systemctl is-active --quiet momir-pocket-printer 2>/dev/null; then
+        APP="${G}running${N}"
+    else
+        APP="${R}STOPPED${N}  (sudo systemctl start momir-pocket-printer)"
+    fi
+    echo "  app service : $APP"
+    if systemctl list-unit-files momir-rfcomm.service >/dev/null 2>&1 \
+       && systemctl is-enabled --quiet momir-rfcomm 2>/dev/null; then
+        if systemctl is-active --quiet momir-rfcomm 2>/dev/null; then
+            echo "  printer link: ${G}connected${N} (bluetooth rfcomm)"
+        else
+            echo "  printer link: ${Y}reconnecting${N} (is the printer on?)"
+        fi
+    fi
+fi
+
+PORT="$(get_config APP listen_port)"; PORT="${PORT:-8080}"
+if command -v nmcli >/dev/null \
+   && nmcli -t -f NAME con show --active 2>/dev/null | grep -qx momir-ap; then
+    echo "  network     : ${Y}HOTSPOT${N} '$(get_config WIFI ap_ssid)' -> http://10.42.0.1:$PORT"
+else
+    IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    echo "  network     : home Wi-Fi -> http://$(hostname).local:$PORT ${IP:+(or http://$IP:$PORT)}"
+fi
+
+METADATA="$PROJECT_DIR/cards/metadata.json"
+if [[ -f "$METADATA" ]]; then
+    COUNT="$(grep -o '"total_card_count": *[0-9]*' "$METADATA" | grep -o '[0-9]*')"
+    UPDATED="$(grep -o '"updated_at": *"[^"]*"' "$METADATA" | cut -d'"' -f4 | cut -dT -f1)"
+    echo "  card library: ${COUNT:-?} creatures (Scryfall data from ${UPDATED:-unknown})"
+else
+    echo "  card library: ${R}EMPTY${N} - run: momir update"
+fi
+
+# --- Warnings (only shown when action is needed) ---------------------------
+WARN=0
+if [[ "$(get_config ACCESS admin_pin)" == "1234" ]]; then
+    [[ $WARN -eq 0 ]] && echo; WARN=1
+    echo "  ${Y}!! admin_pin is still the default (1234).${N}"
+    echo "     Edit [ACCESS] in src/config.ini, then: momir restart"
+fi
+BT_MAC="$(get_config PRINTER bluetooth_mac)"
+if [[ -z "$BT_MAC" || "$BT_MAC" == "00:00:00:00:00:00" ]]; then
+    [[ $WARN -eq 0 ]] && echo; WARN=1
+    echo "  ${Y}!! Printer not paired yet.${N}"
+    echo "     bluetoothctl (scan on / pair / trust), put MAC in src/config.ini,"
+    echo "     then: sudo $PROJECT_DIR/setup.sh"
+fi
+
+# --- Cheat sheet ------------------------------------------------------------
+echo "
+  ${B}momir update${N}          fetch new cards after a set release (home mode)
+  ${B}momir pull${N}            update the code (git pull + service restart)
+  ${B}momir hotspot on|off${N}  switch network mode (also on web host panel)
+  ${B}momir logs${N}            follow live logs      ${B}momir help${N}  everything else
+  config: $MOMIR_CONFIG"
+echo
