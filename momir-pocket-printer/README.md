@@ -131,6 +131,15 @@ momir logs             # follow live logs
 momir status           # service + hotspot status
 ```
 
+### Stranded somewhere with no known Wi-Fi? (rescue hotspot)
+
+If the Pi boots in home mode somewhere its home network doesn't exist, a
+watchdog notices there's no Wi-Fi connection after ~4 minutes and raises
+the hotspot automatically. So the recovery is: plug it in, wait a few
+minutes, join the hotspot SSID, and use **Home Wi-Fi** / the hotspot
+toggle as usual. The rescue hotspot is temporary - it doesn't change the
+saved mode, so a reboot back home reconnects to home Wi-Fi normally.
+
 ### Moving to a new home network (no Linux needed)
 
 The host panel has a **Home Wi-Fi** button: turn the hotspot on (or if it

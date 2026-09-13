@@ -91,6 +91,29 @@ echo "==> Installing hotspot helper (phone-toggleable hotspot)..."
 install -m 755 "$PROJECT_DIR/scripts/momir-hotspot" /usr/local/bin/momir-hotspot
 echo "MOMIR_CONFIG=$CONFIG_FILE" > /etc/momir-pocket-printer.env
 
+echo "==> Installing network rescue watchdog..."
+cat > /etc/systemd/system/momir-net-fallback.service <<EOF
+[Unit]
+Description=Raise Momir rescue hotspot when no Wi-Fi is connected
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/momir-hotspot fallback
+EOF
+cat > /etc/systemd/system/momir-net-fallback.timer <<EOF
+[Unit]
+Description=Periodic check for Wi-Fi connectivity (Momir rescue hotspot)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now momir-net-fallback.timer
+
 echo "==> Installing momir CLI and login banner..."
 install -m 755 "$PROJECT_DIR/scripts/momir" /usr/local/bin/momir
 if [[ -d /etc/update-motd.d ]]; then
