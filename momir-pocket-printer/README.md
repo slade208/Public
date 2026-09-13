@@ -21,6 +21,9 @@ no GPIO, no breadboard, and no soldering.
 - 57x30mm thermal paper
 - Your phone (the UI is a web page served by the Pi)
 
+No printer handy? The app also works fully on-screen: a per-device toggle
+switches between printing cards and displaying them in the browser.
+
 ## Setup
 
 1. Flash **Raspberry Pi OS Lite (64-bit)** with Raspberry Pi Imager. In the

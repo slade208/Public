@@ -155,6 +155,52 @@
     cursor: pointer;
   }
   .host-actions button:active { border-color: var(--accent); }
+  #modeToggle {
+    display: block;
+    margin: 0 auto 14px;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    border: 1px solid var(--panel);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  #modeToggle.screen { color: var(--accent); border-color: var(--accent-press); }
+  #cardModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+  }
+  .card-box {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 18px;
+    width: 100%;
+    max-width: 360px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .card-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 10px;
+  }
+  #cmMana { white-space: nowrap; color: var(--muted); font-weight: 600; }
+  #cmArt { width: 100%; border-radius: 8px; margin-bottom: 10px; }
+  .card-type { color: var(--muted); font-size: 0.85rem; margin-bottom: 8px; }
+  .card-text { font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; }
+  .card-pt { text-align: right; font-weight: 700; font-size: 1.1rem; margin-top: 8px; }
+  .card-note { color: #e0a548; font-size: 0.8rem; margin-top: 10px; }
+  .card-box .wide { margin-top: 14px; }
 </style>
 </head>
 <body>
@@ -186,12 +232,26 @@
 
     <div id="status"><span class="state">Connecting&hellip;</span></div>
 
+    <button id="modeToggle">&#128424; Printing to paper</button>
+
     <div class="grid" id="grid"></div>
 
     <div id="last"></div>
 
     <button id="ticket">Print Wi-Fi join ticket</button>
     <button id="hostLink2" class="linkish" hidden>I'm the host</button>
+  </div>
+
+  <div id="cardModal" hidden>
+    <div class="card-box">
+      <div class="card-title"><span id="cmName"></span><span id="cmMana"></span></div>
+      <img id="cmArt" alt="" hidden>
+      <div id="cmType" class="card-type"></div>
+      <div id="cmText" class="card-text"></div>
+      <div id="cmPT" class="card-pt"></div>
+      <div id="cmNote" class="card-note" hidden></div>
+      <button id="cmClose" class="wide">Done</button>
+    </div>
   </div>
 
 <script>
@@ -220,23 +280,64 @@ function showStatus(state, detail) {
     (detail ? '<br><span class="detail">' + detail + '</span>' : '');
 }
 
+// Per-device output mode: 'print' (paper) or 'screen' (display only)
+let outputMode = 'print';
+try { outputMode = localStorage.getItem('momir_mode') || 'print'; } catch (e) {}
+const modeBtn = document.getElementById('modeToggle');
+
+function renderMode() {
+  const screen = outputMode === 'screen';
+  modeBtn.innerHTML = screen ? '&#128241; Showing on screen' : '&#128424; Printing to paper';
+  modeBtn.classList.toggle('screen', screen);
+}
+modeBtn.onclick = () => {
+  outputMode = outputMode === 'print' ? 'screen' : 'print';
+  try { localStorage.setItem('momir_mode', outputMode); } catch (e) {}
+  renderMode();
+};
+renderMode();
+
+function showCard(c, note) {
+  document.getElementById('cmName').textContent = c.name || '';
+  document.getElementById('cmMana').textContent = c.mana_cost || '';
+  const art = document.getElementById('cmArt');
+  if (c.art_url) { art.src = c.art_url; art.hidden = false; }
+  else { art.hidden = true; }
+  document.getElementById('cmType').textContent = c.type_line || '';
+  document.getElementById('cmText').textContent = c.oracle_text || '';
+  document.getElementById('cmPT').textContent =
+    (c.power != null && c.toughness != null) ? c.power + ' / ' + c.toughness : '';
+  const noteEl = document.getElementById('cmNote');
+  noteEl.textContent = note || '';
+  noteEl.hidden = !note;
+  document.getElementById('cardModal').hidden = false;
+}
+document.getElementById('cmClose').onclick =
+  () => { document.getElementById('cardModal').hidden = true; };
+document.getElementById('cardModal').onclick = (e) => {
+  if (e.target.id === 'cardModal') e.target.hidden = true;
+};
+
 async function printCmc(cmc, btn) {
   if (busy) return;
   busy = true;
   setButtonsDisabled(true);
   showStatus('Summoning…', 'Random creature with mana value ' + cmc);
+  const endpoint = outputMode === 'screen' ? '/draw' : '/print';
   try {
-    const res = await fetch('/print', {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({cmc})
     });
     const data = await res.json();
-    if (data.ok) {
+    if (data.card) {
       const c = data.card;
       const pt = (c.power != null && c.toughness != null) ? ' (' + c.power + '/' + c.toughness + ')' : '';
-      showStatus('Printed: ' + c.name + pt, c.type_line || '');
-      lastBox.textContent = 'Last print: ' + c.name;
+      const verb = data.ok ? (endpoint === '/print' ? 'Printed: ' : 'Summoned: ') : 'Summoned: ';
+      showStatus(verb + c.name + pt, c.type_line || '');
+      lastBox.textContent = 'Last creature: ' + c.name;
+      showCard(c, data.ok ? '' : (data.error || 'Printer unavailable'));
       if (navigator.vibrate) navigator.vibrate(80);
     } else {
       showStatus('Nope', data.error || 'Something went wrong');

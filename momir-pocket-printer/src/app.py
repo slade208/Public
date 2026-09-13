@@ -16,7 +16,10 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Flask, jsonify, make_response, render_template, request
+import re
+
+from flask import (Flask, abort, jsonify, make_response, render_template,
+                   request, send_from_directory)
 
 from printer import Printer
 from scryfall import Scryfall
@@ -385,57 +388,106 @@ def host_set_wifi():
     return jsonify({'ok': True})
 
 
+def _card_payload(card):
+    """Displayable card fields for the web UI."""
+    card_id = card.get('id')
+    art_url = None
+    if card_id and (scryfall.art_path / f"{card_id}.jpg").exists():
+        art_url = f"/art/{card_id}"
+    return {
+        'name': card.get('name'),
+        'mana_cost': card.get('mana_cost'),
+        'type_line': card.get('type_line'),
+        'oracle_text': card.get('oracle_text'),
+        'power': card.get('power'),
+        'toughness': card.get('toughness'),
+        'scryfall_uri': card.get('scryfall_uri'),
+        'art_url': art_url,
+    }
+
+
+def _draw_card(data):
+    """Validate a cmc request and pick a random creature.
+
+    Returns (card, None) on success or (None, error_response) on failure.
+    """
+    try:
+        cmc = int(data.get('cmc'))
+    except (TypeError, ValueError):
+        return None, (jsonify({'ok': False, 'error': 'cmc must be an integer'}), 400)
+
+    if not (CMC_MIN <= cmc <= CMC_MAX):
+        return None, (jsonify({'ok': False,
+                               'error': f'cmc must be between {CMC_MIN} and {CMC_MAX}'}), 400)
+
+    with _state_lock:
+        if not _state['refresh_done'] and scryfall.get_total_card_count() == 0:
+            return None, (jsonify({'ok': False,
+                                   'error': 'Card database is still downloading'}), 503)
+
+    card = scryfall.get_random_card_by_cmc(cmc)
+    if card is None:
+        return None, (jsonify({'ok': False,
+                               'error': f'No creatures exist with mana value {cmc}'}), 404)
+
+    with _state_lock:
+        _state['last_card'] = {
+            'name': card.get('name'),
+            'type_line': card.get('type_line'),
+            'cmc': cmc,
+            'scryfall_uri': card.get('scryfall_uri'),
+        }
+    return card, None
+
+
+@app.route('/art/<card_id>')
+def card_art(card_id):
+    if not re.fullmatch(r'[0-9a-fA-F-]{36}', card_id):
+        abort(404)
+    return send_from_directory(scryfall.art_path, f"{card_id}.jpg",
+                               max_age=86400)
+
+
+@app.route('/draw', methods=['POST'])
+def draw_random_card():
+    """Pick a random creature and return it for on-screen display (no print)."""
+    err = _require('host', 'approved')
+    if err:
+        return err
+    card, fail = _draw_card(request.get_json(silent=True) or {})
+    if fail:
+        return fail
+    logger.info(f"Drew (screen only): {card.get('name')}")
+    return jsonify({'ok': True, 'card': _card_payload(card)})
+
+
 @app.route('/print', methods=['POST'])
 def print_random_card():
     err = _require('host', 'approved')
     if err:
         return err
-    data = request.get_json(silent=True) or {}
-    try:
-        cmc = int(data.get('cmc'))
-    except (TypeError, ValueError):
-        return jsonify({'ok': False, 'error': 'cmc must be an integer'}), 400
-
-    if not (CMC_MIN <= cmc <= CMC_MAX):
-        return jsonify({'ok': False,
-                        'error': f'cmc must be between {CMC_MIN} and {CMC_MAX}'}), 400
-
-    with _state_lock:
-        if not _state['refresh_done'] and scryfall.get_total_card_count() == 0:
-            return jsonify({'ok': False,
-                            'error': 'Card database is still downloading'}), 503
 
     if not _print_lock.acquire(blocking=False):
         return jsonify({'ok': False, 'error': 'Already printing'}), 409
 
     try:
-        card = scryfall.get_random_card_by_cmc(cmc)
-        if card is None:
-            return jsonify({'ok': False,
-                            'error': f'No creatures exist with mana value {cmc}'}), 404
+        card, fail = _draw_card(request.get_json(silent=True) or {})
+        if fail:
+            return fail
 
         _set_state('printing', card.get('name', ''))
-        printer.print_card(card)
+        try:
+            printer.print_card(card)
+        except Exception as e:
+            # The summon still resolved - hand the card back for the screen.
+            logger.error(f"Print failed: {e}")
+            _set_state('ready', '')
+            return jsonify({'ok': False,
+                            'error': 'Printer unavailable - card shown on screen instead',
+                            'card': _card_payload(card)}), 502
 
-        with _state_lock:
-            _state['last_card'] = {
-                'name': card.get('name'),
-                'type_line': card.get('type_line'),
-                'cmc': cmc,
-                'scryfall_uri': card.get('scryfall_uri'),
-            }
         _set_state('ready', '')
-        return jsonify({'ok': True, 'card': {
-            'name': card.get('name'),
-            'type_line': card.get('type_line'),
-            'power': card.get('power'),
-            'toughness': card.get('toughness'),
-        }})
-    except Exception as e:
-        logger.error(f"Print failed: {e}")
-        _set_state('ready', '')
-        return jsonify({'ok': False,
-                        'error': 'Printer error - is it on and paired?'}), 502
+        return jsonify({'ok': True, 'card': _card_payload(card)})
     finally:
         _print_lock.release()
 
