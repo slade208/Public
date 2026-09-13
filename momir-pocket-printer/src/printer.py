@@ -290,6 +290,12 @@ class Printer:
                 printer.set(align='right', bold=False)
                 printer.text(f"{card_power} / {card_toughness}\n")
 
+            # SET
+            card_set_name = self.clean_text(card.get("set_name") or "")
+            if card_set_name:
+                printer.set(align='center', bold=False)
+                printer.text(f"{card_set_name}\n")
+
             # Feed past the tear bar; PT-210s have no cutter.
             printer.text("\n\n\n")
             logger.info(f"Successfully printed: {card_name}")

@@ -402,6 +402,8 @@ def _card_payload(card):
         'power': card.get('power'),
         'toughness': card.get('toughness'),
         'scryfall_uri': card.get('scryfall_uri'),
+        'set_name': card.get('set_name'),
+        'set': (card.get('set') or '').upper(),
         'art_url': art_url,
     }
 

@@ -250,6 +250,7 @@
       <div id="cmType" class="card-type"></div>
       <div id="cmText" class="card-text"></div>
       <div id="cmPT" class="card-pt"></div>
+      <div id="cmSet" class="card-type"></div>
       <div id="cmNote" class="card-note" hidden></div>
       <button id="cmClose" class="wide">Done</button>
     </div>
@@ -308,6 +309,8 @@ function showCard(c, note) {
   document.getElementById('cmText').textContent = c.oracle_text || '';
   document.getElementById('cmPT').textContent =
     (c.power != null && c.toughness != null) ? c.power + ' / ' + c.toughness : '';
+  document.getElementById('cmSet').textContent =
+    c.set_name ? c.set_name + (c.set ? ' (' + c.set + ')' : '') : '';
   const noteEl = document.getElementById('cmNote');
   noteEl.textContent = note || '';
   noteEl.hidden = !note;
