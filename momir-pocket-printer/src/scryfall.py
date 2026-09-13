@@ -467,55 +467,80 @@ class Scryfall:
                 f"({stats['new_cards']} new, {stats['skipped_cards']} existing)."
             )
 
-    def save_card_art(self, path: Path, card_art_uri: str) -> None:
-        """Download and save card art with automatic retry logic.
+    def _try_download_art(self, path: Path, uri: str, headers: Dict[str, str]) -> bool:
+        """Attempt one download-and-save of card art from a URI, with retries.
 
-        Downloads card art from the given URI, resizes and converts to monochrome,
-        then saves to disk. If download fails after all retries, uses default art.
-
-        Args:
-            path: Filesystem path to save art to
-            card_art_uri: URI of the card art to download
+        Returns:
+            True if the art was saved, False if all attempts failed.
         """
         for attempt in range(self.max_retries + 1):
             try:
                 response = requests.get(
-                    card_art_uri, timeout=self.REQUEST_TIMEOUT)
+                    uri, headers=headers, timeout=self.REQUEST_TIMEOUT,
+                    allow_redirects=True)
 
                 if response.status_code == self.HTTP_OK:
                     img = self._process_image(response.content)
                     img.save(path)
                     logger.debug(f"Saved card art: {path.name}")
                     sleep(self.request_delay_seconds)
-                    return
+                    return True
 
-                # Non-200 status code
+                # 4xx means the URI itself is bad (stale bulk-data URL or
+                # rejected request); retrying the same URI won't help.
+                if 400 <= response.status_code < 500:
+                    logger.warning(
+                        f"Download rejected (HTTP {response.status_code}): {uri}")
+                    return False
+
                 if attempt < self.max_retries:
                     logger.warning(
                         f"Download failed (HTTP {response.status_code}). "
-                        f"Retry {attempt + 1}/{self.max_retries}: {card_art_uri}"
+                        f"Retry {attempt + 1}/{self.max_retries}: {uri}"
                     )
                     sleep(self.request_delay_seconds)
-                else:
-                    logger.warning(
-                        f"All retries exhausted. Using default art: {card_art_uri}")
-                    self._ensure_fallback_art(path)
-                    return
 
             except requests.RequestException as e:
                 if attempt < self.max_retries:
                     logger.warning(
                         f"Request exception ({type(e).__name__}). "
-                        f"Retry {attempt + 1}/{self.max_retries}: {card_art_uri}"
+                        f"Retry {attempt + 1}/{self.max_retries}: {uri}"
                     )
                     sleep(self.request_delay_seconds)
-                else:
-                    logger.error(
-                        f"Failed after {self.max_retries} retries ({type(e).__name__}). "
-                        f"Using default art: {card_art_uri}"
-                    )
-                    self._ensure_fallback_art(path)
-                    return
+
+        return False
+
+    def save_card_art(self, path: Path, card_art_uri: str,
+                      card_id: Optional[str] = None) -> None:
+        """Download and save card art, falling back to the API image redirect.
+
+        Tries the direct art URI from bulk data first (with proper
+        User-Agent/Accept headers - Scryfall rejects bare requests). If that
+        fails and a card_id is available, asks the API for the card's current
+        art_crop image, which redirects to the up-to-date file. Only after
+        both fail is the default placeholder art used.
+
+        Args:
+            path: Filesystem path to save art to
+            card_art_uri: URI of the card art from bulk data
+            card_id: Scryfall card ID for the API image fallback
+        """
+        headers = {
+            'User-Agent': self.header_user_agent,
+            'Accept': '*/*',
+        }
+
+        candidates = [card_art_uri]
+        if card_id:
+            candidates.append(
+                f"{self.base_url}/cards/{card_id}?format=image&version=art_crop")
+
+        for uri in candidates:
+            if self._try_download_art(path, uri, headers):
+                return
+
+        logger.error(f"All art sources failed. Using default art for: {path.name}")
+        self._ensure_fallback_art(path)
 
     def card_exists_locally(self, card_id: str, cmc: int) -> bool:
         """Check if a card already exists locally without loading all IDs into memory.
@@ -634,7 +659,7 @@ class Scryfall:
         card_art_uri = self._get_card_art_uri(card)
         if card_art_uri:
             art_path = self._get_art_path(card_id)
-            self.save_card_art(art_path, card_art_uri)
+            self.save_card_art(art_path, card_art_uri, card_id=card_id)
 
     def _remove_obsolete_cards(self, valid_card_ids: Set[str]) -> int:
         """Remove cards that are no longer valid in the Scryfall database.
