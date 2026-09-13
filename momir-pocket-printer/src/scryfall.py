@@ -285,6 +285,29 @@ class Scryfall:
             logger.error(f"Error fetching bulk metadata from {url}: {e}")
             raise
 
+    def _get_bulk_download(self, bulk_metadata: Dict[str, Any]) -> tuple:
+        """Resolve the bulk file download URI, preferring the JSONL format.
+
+        Scryfall retired the JSON-array bulk files (and their download_uri
+        field) on 2026-07-20; current responses expose jsonl_download_uri,
+        a gzipped JSON Lines file with one card object per line.
+
+        Returns:
+            Tuple of (uri, is_jsonl)
+
+        Raises:
+            KeyError: If no known download URI field is present
+        """
+        uri = bulk_metadata.get('jsonl_download_uri')
+        if uri:
+            return uri, True
+        uri = bulk_metadata.get('download_uri')
+        if uri:
+            return uri, False
+        raise KeyError(
+            "Bulk metadata contains neither jsonl_download_uri nor download_uri; "
+            f"got fields: {sorted(bulk_metadata.keys())}")
+
     def filter_bulk_data_by_cmc(self, bulk_data: List[Dict[str, Any]], cmc: float) -> List[Dict[str, Any]]:
         """Filter a list of cards by CMC.
 
@@ -545,7 +568,9 @@ class Scryfall:
 
         metadata = {
             'updated_at': bulk_metadata.get('updated_at') if bulk_metadata else None,
-            'download_uri': bulk_metadata.get('download_uri') if bulk_metadata else None,
+            'download_uri': ((bulk_metadata.get('jsonl_download_uri')
+                              or bulk_metadata.get('download_uri'))
+                             if bulk_metadata else None),
             'total_card_count': self.get_total_card_count(),
             'cmc_card_count': {str(cmc): self.get_card_count_by_cmc(cmc)
                                for cmc in self.get_valid_cmcs()}
@@ -671,15 +696,21 @@ class Scryfall:
         }
 
         logger.info("Streaming bulk data from Scryfall...")
+        download_uri, is_jsonl = self._get_bulk_download(bulk_metadata)
 
         try:
-            with requests.get(bulk_metadata['download_uri'], headers=headers, stream=True,
+            with requests.get(download_uri, headers=headers, stream=True,
                               timeout=self.REQUEST_TIMEOUT) as response:
                 response.raise_for_status()
 
                 with gzip.GzipFile(fileobj=response.raw) as unzipped_stream:
-                    parser = ijson.items(
-                        unzipped_stream, self.JSON_STREAM_PATH, use_float=True)
+                    if is_jsonl:
+                        # JSONL: one card object per line, no wrapping array.
+                        parser = (json.loads(line) for line in unzipped_stream
+                                  if line.strip())
+                    else:
+                        parser = ijson.items(
+                            unzipped_stream, self.JSON_STREAM_PATH, use_float=True)
 
                     for card in parser:
                         stats['total_processed'] += 1
