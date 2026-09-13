@@ -57,10 +57,26 @@ no GPIO, no breadboard, and no soldering.
    sudo ./setup.sh
    ```
 
-5. Open `http://momir.local:8080` on your phone (or the Pi's IP). The first
-   run downloads the Scryfall card database (creature JSON + dithered art),
-   which takes a while; the page shows progress. After that, updates are
-   incremental.
+5. Open `http://momir.local:8080` on your phone (or the Pi's IP).
+
+   **The first run downloads the whole card database - plan for it.** It
+   pulls ~17,000 creatures' data and art from Scryfall (a few hundred MB,
+   with polite rate-limiting on every image). On a Pi Zero over Wi-Fi
+   expect **a few hours**; a Pi 4 on good Wi-Fi is faster. Keep the Pi on
+   wall power for it. The web page shows "downloading card database"
+   status the whole time, and printing works as soon as it finishes. Ways
+   to watch from a terminal:
+
+   ```shell
+   momir logs                                    # live progress, a line per 1000 cards
+   du -sh ~/Public/momir-pocket-printer/cards    # watch the size grow
+   ```
+
+   Tip: you can run the download *before* your printer arrives - do steps
+   1 and 4 (setup stops early without a printer MAC, that's fine), then
+   run `momir update` inside `tmux` and let it finish overnight. If the
+   download dies partway, just run it again - it resumes where it left
+   off. After the first sync, updates are incremental and take minutes.
 
 ### Hotspot mode (play anywhere, let friends print)
 
