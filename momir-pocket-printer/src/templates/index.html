@@ -178,6 +178,7 @@
       <div class="host-actions">
         <button id="updateCards">Update cards</button>
         <button id="hotspotToggle" hidden>Hotspot: &hellip;</button>
+        <button id="setWifi">Home Wi-Fi</button>
       </div>
       <p class="panel-title">Players</p>
       <div id="deviceList"></div>
@@ -358,6 +359,24 @@ async function renderHostPanel() {
   });
   show(hostPanel, true);
 }
+
+document.getElementById('setWifi').onclick = async () => {
+  const ssid = prompt('Home Wi-Fi network name (SSID):');
+  if (!ssid) return;
+  const password = prompt('Wi-Fi password (leave empty for an open network):') || '';
+  const res = await fetch('/host/wifi', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ssid, password})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showStatus('Home Wi-Fi saved: ' + ssid,
+               'The Pi joins it whenever the hotspot is off');
+  } else {
+    showStatus('Nope', data.error || 'Could not save Wi-Fi');
+  }
+};
 
 async function refreshHotspot() {
   const btn = document.getElementById('hotspotToggle');

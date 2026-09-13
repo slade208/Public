@@ -36,6 +36,12 @@ PY
     hotspot)
         sudo /usr/local/bin/momir-hotspot "${2:-status}"
         ;;
+    wifi)
+        if [[ -z "${2:-}" ]]; then
+            echo "usage: momir wifi <ssid> [password]"; exit 2
+        fi
+        sudo /usr/local/bin/momir-hotspot wifi-join "$2" "${3:-}"
+        ;;
     status)
         systemctl --no-pager --lines=0 status "$SERVICE" || true
         echo
@@ -51,6 +57,7 @@ momir - Momir Pocket Printer admin commands
   momir logs             follow app + printer-binding logs
   momir hotspot on|off   switch to/from hotspot mode (also in web host panel)
   momir hotspot status   show whether the hotspot is active
+  momir wifi <ssid> [pw] set the home Wi-Fi network (also in web host panel)
   momir status           service + hotspot status
 
 Config file: src/config.ini (bluetooth_mac, admin_pin, hotspot SSID/password)

@@ -350,6 +350,41 @@ def host_hotspot_toggle():
     return jsonify({'ok': True, 'applying': 'on' if enabled else 'off'})
 
 
+def _apply_wifi_join(ssid: str, password: str) -> None:
+    """Store home Wi-Fi credentials after a short delay (same reason as the
+    hotspot toggle: let the HTTP response out before any network change)."""
+    time.sleep(1.5)
+    try:
+        result = subprocess.run(
+            ['sudo', '-n', HOTSPOT_HELPER, 'wifi-join', ssid, password],
+            capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            logger.info(f"Home Wi-Fi set to '{ssid}': {result.stdout.strip()}")
+        else:
+            logger.error(
+                f"Wi-Fi join failed: {result.stderr.strip() or result.stdout.strip()}")
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.error(f"Wi-Fi join failed: {e}")
+
+
+@app.route('/host/wifi', methods=['POST'])
+def host_set_wifi():
+    err = _require('host')
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    ssid = str(data.get('ssid') or '').strip()
+    password = str(data.get('password') or '')
+    if not ssid or len(ssid) > 32:
+        return jsonify({'ok': False, 'error': 'SSID must be 1-32 characters'}), 400
+    if password and not (8 <= len(password) <= 63):
+        return jsonify({'ok': False,
+                        'error': 'Password must be 8-63 characters (or empty for an open network)'}), 400
+    threading.Thread(target=_apply_wifi_join, args=(ssid, password),
+                     daemon=True).start()
+    return jsonify({'ok': True})
+
+
 @app.route('/print', methods=['POST'])
 def print_random_card():
     err = _require('host', 'approved')

@@ -72,7 +72,44 @@ case "${1:-status}" in
             echo inactive
         fi
         ;;
+    wifi-join)
+        # Store home Wi-Fi credentials as the momir-home profile. Safe to run
+        # while the hotspot is active: the profile connects once the hotspot
+        # goes off (or immediately if already in client mode).
+        SSID="${2:-}"
+        PASSWORD="${3:-}"
+        AP_IFACE="$(get_config WIFI ap_interface)"
+        AP_IFACE="${AP_IFACE:-wlan0}"
+
+        if [[ -z "$SSID" || ${#SSID} -gt 32 ]]; then
+            echo "SSID must be 1-32 characters" >&2; exit 1
+        fi
+        if [[ -n "$PASSWORD" && ( ${#PASSWORD} -lt 8 || ${#PASSWORD} -gt 63 ) ]]; then
+            echo "password must be 8-63 characters (or empty for an open network)" >&2
+            exit 1
+        fi
+
+        if nmcli -t -f NAME con show | grep -qx momir-home; then
+            nmcli con modify momir-home 802-11-wireless.ssid "$SSID"
+        else
+            nmcli con add type wifi ifname "$AP_IFACE" con-name momir-home \
+                autoconnect yes ssid "$SSID"
+        fi
+        if [[ -n "$PASSWORD" ]]; then
+            nmcli con modify momir-home \
+                wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$PASSWORD"
+        else
+            nmcli con modify momir-home remove wifi-sec 2>/dev/null || true
+        fi
+
+        if nmcli -t -f NAME con show --active 2>/dev/null | grep -qx momir-ap; then
+            echo "saved; connects when the hotspot is turned off"
+        else
+            nmcli con up momir-home || echo "saved; will connect when in range"
+        fi
+        ;;
     *)
-        echo "usage: momir-hotspot on|off|status" >&2; exit 2
+        echo "usage: momir-hotspot on|off|status|wifi-join <ssid> [password]" >&2
+        exit 2
         ;;
 esac

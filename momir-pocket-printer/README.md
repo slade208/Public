@@ -126,9 +126,18 @@ live status (services, network mode, card count) plus any warnings
 momir update           # fetch new cards after a set release (home mode)
 momir pull             # git pull latest code + restart the service
 momir hotspot on|off   # switch network mode (also on the web host panel)
+momir wifi <ssid> [pw] # set the home Wi-Fi network (also on the host panel)
 momir logs             # follow live logs
 momir status           # service + hotspot status
 ```
+
+### Moving to a new home network (no Linux needed)
+
+The host panel has a **Home Wi-Fi** button: turn the hotspot on (or if it
+already is, just join it), open the page as host, tap Home Wi-Fi, type the
+new network's name and password, then toggle the hotspot off - the Pi
+joins the new network. This is how a non-technical owner points their unit
+at their own Wi-Fi: everything happens from the phone.
 
 ## Service management
 
