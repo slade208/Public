@@ -155,6 +155,13 @@
     cursor: pointer;
   }
   .host-actions button:active { border-color: var(--accent); }
+  #printerStatus {
+    text-align: center;
+    font-size: 0.78rem;
+    margin: -6px 0 10px;
+  }
+  #printerStatus.ok { color: var(--accent); }
+  #printerStatus.bad { color: #e0a548; }
   #modeToggle {
     display: block;
     margin: 0 auto 14px;
@@ -250,6 +257,8 @@
     </div>
 
     <div id="status"><span class="state">Connecting&hellip;</span></div>
+
+    <div id="printerStatus" hidden></div>
 
     <button id="modeToggle">&#128424; Printing to paper</button>
 
@@ -422,6 +431,13 @@ async function pollStatus() {
     }
     if (s.last_card && !lastBox.textContent) {
       lastBox.textContent = 'Last print: ' + s.last_card.name;
+    }
+    const ps = document.getElementById('printerStatus');
+    if (typeof s.printer === 'boolean') {
+      ps.hidden = false;
+      ps.textContent = s.printer ? '\u{1F5A8} Printer: connected'
+                                 : '\u{1F5A8} Printer: offline (is it on?)';
+      ps.className = s.printer ? 'ok' : 'bad';
     }
   } catch (e) {
     showStatus('Connecting…', 'Waiting for the printer service');

@@ -7,6 +7,21 @@ ENV_FILE=/etc/momir-pocket-printer.env
 CONFIG_FILE="${MOMIR_CONFIG:?MOMIR_CONFIG not set (run sudo ./setup.sh)}"
 PROJECT_DIR="$(dirname "$(dirname "$CONFIG_FILE")")"
 SERVICE=momir-pocket-printer
+LOCAL_CONFIG="${CONFIG_FILE%.ini}.local.ini"
+
+get_config() {
+    # config.local.ini overrides config.ini
+    local f val
+    for f in "$LOCAL_CONFIG" "$CONFIG_FILE"; do
+        [[ -f "$f" ]] || continue
+        val=$(awk -F' *= *' -v section="[$1]" -v key="$2" '
+            $0 == section { in_section=1; next }
+            /^\[/ { in_section=0 }
+            in_section && $1 == key { print $2; exit }
+        ' "$f")
+        if [[ -n "$val" ]]; then echo "$val"; return; fi
+    done
+}
 
 case "${1:-help}" in
     update)
@@ -53,6 +68,17 @@ PY
         systemctl --no-pager --lines=0 status "$SERVICE" || true
         echo
         /usr/local/bin/momir-hotspot status | sed 's/^/hotspot: /'
+        MAC="$(get_config PRINTER bluetooth_mac)"
+        if [[ -n "$MAC" && "$MAC" != "00:00:00:00:00:00" ]]; then
+            NAME="$(bluetoothctl info "$MAC" 2>/dev/null | awk -F': ' '/Name:/ {print $2; exit}')"
+            if bluetoothctl info "$MAC" 2>/dev/null | grep -q "Connected: yes"; then
+                echo "printer: ${NAME:-$MAC} CONNECTED"
+            else
+                echo "printer: ${NAME:-$MAC} NOT CONNECTED (is it on? rfcomm retries every 10s)"
+            fi
+        else
+            echo "printer: not configured (bluetooth_mac unset)"
+        fi
         ;;
     help|*)
         cat <<'EOF'

@@ -41,13 +41,15 @@ if command -v systemctl >/dev/null; then
         APP="${R}STOPPED${N}  (sudo systemctl start momir-pocket-printer)"
     fi
     echo "  app service : $APP"
-    if systemctl list-unit-files momir-rfcomm.service >/dev/null 2>&1 \
-       && systemctl is-enabled --quiet momir-rfcomm 2>/dev/null; then
-        if systemctl is-active --quiet momir-rfcomm 2>/dev/null; then
-            echo "  printer link: ${G}connected${N} (bluetooth rfcomm)"
-        else
-            echo "  printer link: ${Y}reconnecting${N} (is the printer on?)"
-        fi
+fi
+
+BT_MAC_MOTD="$(get_config PRINTER bluetooth_mac)"
+if [[ -n "$BT_MAC_MOTD" && "$BT_MAC_MOTD" != "00:00:00:00:00:00" ]] \
+   && command -v bluetoothctl >/dev/null; then
+    if bluetoothctl info "$BT_MAC_MOTD" 2>/dev/null | grep -q "Connected: yes"; then
+        echo "  printer     : ${G}connected${N} (bluetooth)"
+    else
+        echo "  printer     : ${Y}not connected${N} (is it on? reconnects automatically)"
     fi
 fi
 

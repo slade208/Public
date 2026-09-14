@@ -319,6 +319,7 @@ def index():
 def status():
     with _state_lock:
         payload = dict(_state)
+    payload['printer'] = printer.is_connected()
     return jsonify(payload)
 
 

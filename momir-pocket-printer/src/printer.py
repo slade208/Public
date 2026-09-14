@@ -10,6 +10,7 @@ their own flow control.
 import json
 import logging
 import textwrap
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -125,6 +126,24 @@ class Printer:
         except Exception as e:
             logger.error(f"Failed to connect to printer ({self}): {e}")
             raise
+
+    _usb_checked_at: float = 0.0
+    _usb_available: bool = False
+
+    def is_connected(self) -> bool:
+        """Cheap live check of whether the printer is reachable right now.
+
+        Bluetooth mode: the rfcomm device node only exists while the
+        binding service holds an open connection, so its presence is the
+        connection status. USB mode: probe at most every 15 seconds.
+        """
+        if self.connection_mode == 'bluetooth':
+            return Path(self.serial_port).exists()
+        now = time.monotonic()
+        if now - self._usb_checked_at > 15:
+            self._usb_available = self.is_available()
+            self._usb_checked_at = now
+        return self._usb_available
 
     def is_available(self) -> bool:
         """Return True if the printer can be reached right now."""
