@@ -220,6 +220,13 @@ sudo iw wlan0 set power_save off     # immediate, until reboot
 automatically; just re-run `momir update` if a run dies - it resumes
 incrementally and skips everything already downloaded.
 
+**Pairing fails with "not available":** BlueZ can only pair devices in
+its live discovery cache, which it flushes when scanning stops. Run
+`scan on`, wait for the printer (named PT210_xxxx / MTP-II / PT200) to
+appear, and `pair <MAC>` **while the scan is still running**. If the
+adapter says NotReady, run `power on` in bluetoothctl first (and
+`sudo rfkill unblock bluetooth` if that fails).
+
 **Printer won't print:** check the Bluetooth binding with
 `sudo systemctl status momir-rfcomm` - it auto-reconnects every 10s while
 the printer is off or out of range. `momir logs` shows both services live.
