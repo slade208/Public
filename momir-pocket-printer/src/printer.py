@@ -43,7 +43,9 @@ class Printer:
         self.card_art_enabled: bool = printer_config.getboolean(
             'card_art_enabled', fallback=True)
         self.qr_code_enabled: bool = printer_config.getboolean(
-            'qr_code_enabled', fallback=True)
+            'qr_code_enabled', fallback=False)
+        self.print_set_enabled: bool = printer_config.getboolean(
+            'print_set_enabled', fallback=False)
         self.qr_code_size: int = printer_config.getint(
             'qr_code_size', fallback=6)
         self.printer_profile: str = printer_config.get(
@@ -157,6 +159,21 @@ class Printer:
             return
 
         printer.image(str(card_art_path))
+
+    def print_qr(self, name: str, uri: str) -> None:
+        """Print a small standalone QR slip linking to a card's Scryfall page."""
+        printer = self._get_printer_connection()
+        try:
+            printer.set(align='center', bold=True)
+            printer.text(f"{self.clean_text(name)}\n\n")
+            printer.qr(uri, size=self.qr_code_size)
+            printer.text("\n\n\n")
+            logger.info(f"Printed QR slip for: {name}")
+        finally:
+            try:
+                printer.close()
+            except Exception:
+                pass
 
     def print_wifi_ticket(self, url: str, ssid: str = '', password: str = '') -> None:
         """Print a join ticket: Wi-Fi QR code (if AP mode) and the app URL QR.
@@ -290,11 +307,12 @@ class Printer:
                 printer.set(align='right', bold=False)
                 printer.text(f"{card_power} / {card_toughness}\n")
 
-            # SET
-            card_set_name = self.clean_text(card.get("set_name") or "")
-            if card_set_name:
-                printer.set(align='center', bold=False)
-                printer.text(f"{card_set_name}\n")
+            # SET (off by default to keep the print sleeve-sized)
+            if self.print_set_enabled:
+                card_set_name = self.clean_text(card.get("set_name") or "")
+                if card_set_name:
+                    printer.set(align='center', bold=False)
+                    printer.text(f"{card_set_name}\n")
 
             # Feed past the tear bar; PT-210s have no cutter.
             printer.text("\n\n\n")

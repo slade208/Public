@@ -201,6 +201,24 @@
   .card-text { font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; }
   .card-pt { text-align: right; font-weight: 700; font-size: 1.1rem; margin-top: 8px; }
   .card-note { color: #e0a548; font-size: 0.8rem; margin-top: 10px; }
+  .card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 0.85rem;
+  }
+  .card-actions a { color: var(--accent); text-decoration: none; }
+  .card-actions button {
+    border: 1px solid var(--muted);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
   .card-box .wide { margin-top: 14px; }
 </style>
 </head>
@@ -252,6 +270,10 @@
       <div id="cmPT" class="card-pt"></div>
       <div id="cmSet" class="card-type"></div>
       <div id="cmNote" class="card-note" hidden></div>
+      <div class="card-actions">
+        <a id="cmLink" href="#" target="_blank" rel="noopener" hidden>View on Scryfall &#8599;</a>
+        <button id="cmPrintQr" hidden>Print QR</button>
+      </div>
       <button id="cmClose" class="wide">Done</button>
     </div>
   </div>
@@ -314,8 +336,25 @@ function showCard(c, note) {
   const noteEl = document.getElementById('cmNote');
   noteEl.textContent = note || '';
   noteEl.hidden = !note;
+  const link = document.getElementById('cmLink');
+  if (c.scryfall_uri) { link.href = c.scryfall_uri; link.hidden = false; }
+  else { link.hidden = true; }
+  document.getElementById('cmPrintQr').hidden = !c.scryfall_uri;
   document.getElementById('cardModal').hidden = false;
 }
+
+document.getElementById('cmPrintQr').onclick = async () => {
+  const btn = document.getElementById('cmPrintQr');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/print-qr', {method: 'POST'});
+    const data = await res.json();
+    btn.textContent = data.ok ? 'QR printed' : (data.error || 'Failed');
+  } catch (e) {
+    btn.textContent = 'Failed';
+  }
+  setTimeout(() => { btn.textContent = 'Print QR'; btn.disabled = false; }, 2000);
+};
 document.getElementById('cmClose').onclick =
   () => { document.getElementById('cardModal').hidden = true; };
 document.getElementById('cardModal').onclick = (e) => {

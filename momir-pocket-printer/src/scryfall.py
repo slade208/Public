@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Set
 import gzip
 import ijson
 import requests
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 logger = logging.getLogger('momir.scryfall')
 
@@ -64,6 +64,10 @@ class Scryfall:
             'request_delay_seconds')
         self.max_retries: int = scryfall_config.getint('max_retries')
         self.art_width_px: int = scryfall_config.getint('art_width_px')
+        self.art_brightness: float = scryfall_config.getfloat(
+            'art_brightness', fallback=1.0)
+        self.art_contrast: float = scryfall_config.getfloat(
+            'art_contrast', fallback=1.0)
 
         # Filter configuration
         self.excluded_sets: List[str] = [
@@ -420,7 +424,12 @@ class Scryfall:
     # Image Processing Helpers
 
     def _process_image(self, image_bytes: bytes) -> Image.Image:
-        """Process image: resize and convert to monochrome.
+        """Process image: resize, enhance, and convert to grayscale.
+
+        Art is stored as enhanced grayscale rather than pre-dithered 1-bit:
+        the ESC/POS layer dithers at print time, and grayscale both dithers
+        better and displays better in the web UI. Brightness/contrast are
+        boosted (configurable) because thermal prints tend to run dark.
 
         Args:
             image_bytes: Raw image bytes
@@ -434,9 +443,13 @@ class Scryfall:
         w_percent = self.art_width_px / float(img.size[0])
         h_size = int(float(img.size[1]) * w_percent)
 
-        # Resize and convert to monochrome
         img = img.resize((self.art_width_px, h_size), Image.Resampling.LANCZOS)
-        return img.convert(self.MONOCHROME_MODE)
+        img = img.convert('L')
+        if self.art_brightness != 1.0:
+            img = ImageEnhance.Brightness(img).enhance(self.art_brightness)
+        if self.art_contrast != 1.0:
+            img = ImageEnhance.Contrast(img).enhance(self.art_contrast)
+        return img
 
     # Data Processing and Cleanup Helpers
 

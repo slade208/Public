@@ -24,6 +24,14 @@ no GPIO, no breadboard, and no soldering.
 No printer handy? The app also works fully on-screen: a per-device toggle
 switches between printing cards and displaying them in the browser.
 
+**Printed cards are sleeve-sized by design:** 58mm paper fits a standard
+card sleeve, and the default print (name, art, type, rules text, P/T)
+keeps most cards within sleeve height. The Scryfall QR and set name are
+off the card print by default (`qr_code_enabled` / `print_set_enabled`
+in config) - the card overlay in the app has a **View on Scryfall** link
+and a **Print QR** button that prints the QR as a separate slip when you
+want one.
+
 ## Setup
 
 1. Flash **Raspberry Pi OS Lite (64-bit)** with Raspberry Pi Imager. In the

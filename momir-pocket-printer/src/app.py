@@ -463,6 +463,29 @@ def draw_random_card():
     return jsonify({'ok': True, 'card': _card_payload(card)})
 
 
+@app.route('/print-qr', methods=['POST'])
+def print_qr_slip():
+    """Print a standalone Scryfall QR slip for the most recent creature."""
+    err = _require('host', 'approved')
+    if err:
+        return err
+    with _state_lock:
+        last = dict(_state['last_card']) if _state['last_card'] else None
+    if not last or not last.get('scryfall_uri'):
+        return jsonify({'ok': False, 'error': 'Nothing summoned yet'}), 404
+    if not _print_lock.acquire(blocking=False):
+        return jsonify({'ok': False, 'error': 'Already printing'}), 409
+    try:
+        printer.print_qr(last.get('name') or 'Card', last['scryfall_uri'])
+        return jsonify({'ok': True})
+    except Exception as e:
+        logger.error(f"QR print failed: {e}")
+        return jsonify({'ok': False,
+                        'error': 'Printer error - is it on and paired?'}), 502
+    finally:
+        _print_lock.release()
+
+
 @app.route('/print', methods=['POST'])
 def print_random_card():
     err = _require('host', 'approved')

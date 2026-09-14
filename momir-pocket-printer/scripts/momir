@@ -10,15 +10,22 @@ SERVICE=momir-pocket-printer
 
 case "${1:-help}" in
     update)
-        echo "Checking Scryfall for new cards (incremental, needs internet)..."
+        FULL="${2:-}"
+        if [[ "$FULL" == "full" ]]; then
+            echo "FULL refresh: re-downloading and re-processing ALL cards and art."
+            echo "This takes hours (like the first download) - run it in tmux."
+        else
+            echo "Checking Scryfall for new cards (incremental, needs internet)..."
+        fi
         cd "$PROJECT_DIR/src"
-        "$PROJECT_DIR/.venv/bin/python" - <<'PY'
-import configparser, logging
+        MOMIR_FULL="$FULL" "$PROJECT_DIR/.venv/bin/python" - <<'PY'
+import configparser, logging, os
 logging.basicConfig(level='INFO')
 from scryfall import Scryfall
 c = configparser.ConfigParser()
 c.read('config.ini', encoding='utf-8')
-Scryfall(c['SCRYFALL'], c['FILESYSTEM']).refresh_card_data()
+force = os.environ.get('MOMIR_FULL') == 'full'
+Scryfall(c['SCRYFALL'], c['FILESYSTEM']).refresh_card_data(force_full_refresh=force)
 PY
         ;;
     pull)
@@ -52,6 +59,7 @@ PY
 momir - Momir Pocket Printer admin commands
 
   momir update           check Scryfall and download new cards (home mode)
+  momir update full      re-download EVERYTHING (hours; after art setting changes)
   momir pull             git pull latest code and restart the service
   momir restart          restart the app service
   momir logs             follow app + printer-binding logs
