@@ -155,16 +155,17 @@
     cursor: pointer;
   }
   .host-actions button:active { border-color: var(--accent); }
-  #printerStatus {
-    text-align: center;
-    font-size: 0.78rem;
-    margin: -6px 0 10px;
+  #controlRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 2px 14px;
   }
+  #printerStatus { font-size: 0.78rem; }
   #printerStatus.ok { color: var(--accent); }
   #printerStatus.bad { color: #e0a548; }
   #modeToggle {
-    display: block;
-    margin: 0 auto 14px;
     padding: 8px 16px;
     font-size: 0.8rem;
     border: 1px solid var(--panel);
@@ -258,9 +259,10 @@
 
     <div id="status"><span class="state">Connecting&hellip;</span></div>
 
-    <div id="printerStatus" hidden></div>
-
-    <button id="modeToggle">&#128424; Printing to paper</button>
+    <div id="controlRow">
+      <div id="printerStatus" hidden></div>
+      <button id="modeToggle">&#128424; Printing to paper</button>
+    </div>
 
     <div class="grid" id="grid"></div>
 
