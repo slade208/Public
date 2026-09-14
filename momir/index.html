@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Momir Online</title>
+<meta name="description" content="Summon a random Magic: The Gathering creature by mana value - Momir Basic, anywhere.">
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1e222c;
+    --accent: #4caf7d;
+    --accent-press: #3b8a63;
+    --text: #e8e8e8;
+    --muted: #8a8f9c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0 auto;
+    padding: 16px;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 480px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.25rem; text-align: center; margin: 8px 0 2px; }
+  .sub { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 0 0 16px; }
+  #status {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    min-height: 3.2em;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+  #status .state { font-weight: 600; }
+  #status .detail { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  button.cmc {
+    font-size: 1.5rem;
+    font-weight: 700;
+    padding: 18px 0;
+    border: none;
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.cmc:active { background: var(--accent-press); }
+  button.cmc:disabled { opacity: 0.35; }
+  .label { display: block; font-size: 0.65rem; font-weight: 400; color: var(--muted); }
+  footer {
+    margin-top: 22px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  footer a { color: var(--muted); }
+  #cardModal[hidden] { display: none; }
+  #cardModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 10;
+  }
+  .card-box {
+    width: 100%;
+    max-width: 380px;
+    max-height: 92vh;
+    overflow-y: auto;
+    text-align: center;
+  }
+  #cardImg {
+    width: 100%;
+    border-radius: 4.75% / 3.5%;
+    display: block;
+  }
+  .card-links {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+  }
+  .card-links a { color: var(--accent); text-decoration: none; }
+  .card-links button {
+    border: 1px solid var(--muted);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    padding: 7px 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  #qrBox {
+    display: inline-block;
+    background: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 12px;
+  }
+  #qrBox[hidden] { display: none; }
+  .close-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 13px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #10231a;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>Momir Online</h1>
+  <p class="sub">Discard a land &middot; tap a mana value &middot; get a creature</p>
+
+  <div id="status"><span class="state">Ready</span><br>
+    <span class="detail">Pick a mana value below</span></div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    Powered by the <a href="https://scryfall.com/docs/api" rel="noopener">Scryfall API</a>.
+    Same rules as the <a href="https://github.com/slade208/Public/tree/main/momir-pocket-printer" rel="noopener">Momir Pocket Printer</a>:
+    every paper creature in Magic's history, no Un-sets.
+    Summons are token copies. Not affiliated with Wizards of the Coast.
+  </footer>
+
+  <div id="cardModal" hidden>
+    <div class="card-box">
+      <img id="cardImg" alt="">
+      <div class="card-links">
+        <a id="cardLink" href="#" target="_blank" rel="noopener">View on Scryfall &#8599;</a>
+        <button id="showQr">Show QR</button>
+      </div>
+      <div id="qrBox" hidden></div>
+      <button class="close-btn" id="closeBtn">Done</button>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const CMC_MIN = 0, CMC_MAX = 16;
+const grid = document.getElementById('grid');
+const statusBox = document.getElementById('status');
+let busy = false;
+
+for (let cmc = CMC_MIN; cmc <= CMC_MAX; cmc++) {
+  const b = document.createElement('button');
+  b.className = 'cmc';
+  b.innerHTML = cmc + '<span class="label">mana value</span>';
+  b.onclick = () => summon(cmc);
+  grid.appendChild(b);
+}
+
+function showStatus(state, detail) {
+  statusBox.innerHTML = '<span class="state">' + state + '</span>' +
+    (detail ? '<br><span class="detail">' + detail + '</span>' : '');
+}
+
+function setDisabled(on) {
+  document.querySelectorAll('button.cmc').forEach(b => b.disabled = on);
+}
+
+// Mirrors the Pocket Printer's pool: paper-legal creatures, no funny sets,
+// no memorabilia. Scryfall's random endpoint excludes tokens/extras itself.
+function queryFor(cmc) {
+  return 't:creature game:paper cmc=' + cmc +
+         ' -st:funny -st:memorabilia -st:minigame';
+}
+
+async function summon(cmc) {
+  if (busy) return;
+  busy = true;
+  setDisabled(true);
+  showStatus('Summoning…', 'Random creature with mana value ' + cmc);
+  try {
+    const res = await fetch('https://api.scryfall.com/cards/random?q=' +
+                            encodeURIComponent(queryFor(cmc)));
+    if (res.status === 404) {
+      showStatus('Nope', 'No creatures exist with mana value ' + cmc);
+    } else if (!res.ok) {
+      showStatus('Scryfall error', 'Try again in a moment');
+    } else {
+      const card = await res.json();
+      const faces = card.card_faces && card.card_faces[0].image_uris
+                    ? card.card_faces[0].image_uris : card.image_uris;
+      const img = document.getElementById('cardImg');
+      img.src = faces ? faces.normal : '';
+      img.alt = card.name;
+      document.getElementById('cardLink').href = card.scryfall_uri;
+      const qrBox = document.getElementById('qrBox');
+      qrBox.hidden = true;
+      qrBox.innerHTML = '';
+      qrBox.dataset.uri = card.scryfall_uri;
+      document.getElementById('showQr').textContent = 'Show QR';
+      const pt = (card.power != null && card.toughness != null)
+                 ? ' (' + card.power + '/' + card.toughness + ')' : '';
+      showStatus('Summoned: ' + card.name + pt, card.type_line || '');
+      document.getElementById('cardModal').hidden = false;
+      if (navigator.vibrate) navigator.vibrate(80);
+    }
+  } catch (e) {
+    showStatus('No connection', 'Scryfall is unreachable - check your internet');
+  }
+  busy = false;
+  setDisabled(false);
+}
+
+document.getElementById('closeBtn').onclick =
+  () => { document.getElementById('cardModal').hidden = true; };
+document.getElementById('cardModal').onclick = (e) => {
+  if (e.target.id === 'cardModal') e.target.hidden = true;
+};
+document.getElementById('showQr').onclick = () => {
+  // QR of the card's Scryfall page, so others at the table can scan it
+  // off this screen (then sharpie their proxy).
+  const qrBox = document.getElementById('qrBox');
+  const btn = document.getElementById('showQr');
+  if (qrBox.hidden) {
+    if (!qrBox.hasChildNodes() && window.QRCode) {
+      new QRCode(qrBox, { text: qrBox.dataset.uri, width: 168, height: 168,
+                          correctLevel: QRCode.CorrectLevel.M });
+    }
+    qrBox.hidden = false;
+    btn.textContent = 'Hide QR';
+  } else {
+    qrBox.hidden = true;
+    btn.textContent = 'Show QR';
+  }
+};
+
+</script>
+</body>
+</html>
