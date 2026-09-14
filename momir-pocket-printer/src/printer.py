@@ -42,9 +42,9 @@ class Printer:
         self.paper_width_chars: int = printer_config.getint(
             'paper_width_chars', fallback=32)
         self.card_art_enabled: bool = printer_config.getboolean(
-            'card_art_enabled', fallback=True)
+            'card_art_enabled', fallback=False)
         self.qr_code_enabled: bool = printer_config.getboolean(
-            'qr_code_enabled', fallback=False)
+            'qr_code_enabled', fallback=True)
         self.print_set_enabled: bool = printer_config.getboolean(
             'print_set_enabled', fallback=False)
         self.qr_code_size: int = printer_config.getint(
