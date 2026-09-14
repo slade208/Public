@@ -468,6 +468,33 @@ def draw_random_card():
     return jsonify({'ok': True, 'card': _card_payload(card)})
 
 
+@app.route('/qr-image')
+def qr_image():
+    """Render a QR PNG for a Scryfall link, generated locally on the Pi.
+
+    Exists so the card overlay can SHOW a scannable QR on one phone's
+    screen for other players - works with no printer and no internet
+    (hotspot mode), since nothing is fetched from a CDN.
+    """
+    err = _require('host', 'approved')
+    if err:
+        return err
+    uri = request.args.get('uri', '')
+    if not uri.startswith('https://scryfall.com/'):
+        return jsonify({'ok': False, 'error': 'Only scryfall.com links'}), 400
+    import io
+
+    import qrcode
+    img = qrcode.make(uri, box_size=8, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    resp = make_response(buf.read())
+    resp.headers['Content-Type'] = 'image/png'
+    resp.headers['Cache-Control'] = 'max-age=86400'
+    return resp
+
+
 @app.route('/print-qr', methods=['POST'])
 def print_qr_slip():
     """Print a standalone Scryfall QR slip for the most recent creature."""

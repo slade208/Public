@@ -5,3 +5,4 @@ ijson
 pyserial
 pyusb
 flask
+qrcode

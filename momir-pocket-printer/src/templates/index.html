@@ -228,6 +228,14 @@
     cursor: pointer;
   }
   .card-box .wide { margin-top: 14px; }
+  #cmQrImg {
+    display: block;
+    width: 55%;
+    margin: 12px auto 0;
+    border-radius: 8px;
+    background: #fff;
+  }
+  #cmQrImg[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -283,8 +291,9 @@
       <div id="cmNote" class="card-note" hidden></div>
       <div class="card-actions">
         <a id="cmLink" href="#" target="_blank" rel="noopener" hidden>View on Scryfall &#8599;</a>
-        <button id="cmPrintQr" hidden>Print QR</button>
+        <button id="cmShowQr" hidden>Show QR</button>
       </div>
+      <img id="cmQrImg" alt="Scryfall QR code" hidden>
       <button id="cmClose" class="wide">Done</button>
     </div>
   </div>
@@ -350,21 +359,29 @@ function showCard(c, note) {
   const link = document.getElementById('cmLink');
   if (c.scryfall_uri) { link.href = c.scryfall_uri; link.hidden = false; }
   else { link.hidden = true; }
-  document.getElementById('cmPrintQr').hidden = !c.scryfall_uri;
+  const qrBtn = document.getElementById('cmShowQr');
+  qrBtn.hidden = !c.scryfall_uri;
+  qrBtn.dataset.uri = c.scryfall_uri || '';
+  qrBtn.textContent = 'Show QR';
+  const qrImg = document.getElementById('cmQrImg');
+  qrImg.hidden = true;
+  qrImg.removeAttribute('src');
   document.getElementById('cardModal').hidden = false;
 }
 
-document.getElementById('cmPrintQr').onclick = async () => {
-  const btn = document.getElementById('cmPrintQr');
-  btn.disabled = true;
-  try {
-    const res = await fetch('/print-qr', {method: 'POST'});
-    const data = await res.json();
-    btn.textContent = data.ok ? 'QR printed' : (data.error || 'Failed');
-  } catch (e) {
-    btn.textContent = 'Failed';
+document.getElementById('cmShowQr').onclick = () => {
+  // On-screen QR so other players can scan the card from this phone -
+  // works with no printer and no internet (the Pi renders it).
+  const btn = document.getElementById('cmShowQr');
+  const img = document.getElementById('cmQrImg');
+  if (img.hidden) {
+    img.src = '/qr-image?uri=' + encodeURIComponent(btn.dataset.uri);
+    img.hidden = false;
+    btn.textContent = 'Hide QR';
+  } else {
+    img.hidden = true;
+    btn.textContent = 'Show QR';
   }
-  setTimeout(() => { btn.textContent = 'Print QR'; btn.disabled = false; }, 2000);
 };
 document.getElementById('cmClose').onclick =
   () => { document.getElementById('cardModal').hidden = true; };
