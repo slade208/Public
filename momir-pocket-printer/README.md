@@ -30,7 +30,9 @@ Scryfall QR (scan for art and details), type, rules text, P/T. Card art
 and set name show in the web app instead of on paper (`card_art_enabled`
 / `print_set_enabled` / `qr_code_enabled` / `qr_code_size` in config turn
 things back on or resize them). The card overlay also has a **View on
-Scryfall** link and a **Print QR** button for a standalone QR slip.
+Scryfall** link and a **Show QR** button that displays the QR on the
+phone screen so others at the table can scan it - useful in screen-only
+mode with no printer.
 
 ## Setup
 
@@ -45,18 +47,29 @@ Scryfall** link and a **Print QR** button for a standalone QR slip.
    cd Public/momir-pocket-printer
    ```
 
+2. Prep the printer (one time): take the battery out and **peel the
+   insulating sticker off its contacts** (shipped that way; the printer
+   is dead until you do). Load paper so it unwinds from under the roll
+   toward you - if prints come out blank, the roll is backwards
+   (fingernail-scratch the paper: the side that streaks dark is the
+   thermal side and must face the lid). Then verify the hardware with
+   the offline self-test: printer off, hold FEED, press POWER, release
+   on the beep - a test page prints with no software involved.
 
-2. Pair the printer (one time):
+3. Pair the printer (one time). The device advertises as `PT210_xxxx`,
+   `MTP-II`, or `PT200`, and you must pair **while the scan is still
+   running** (BlueZ flushes unpaired devices when scanning stops):
 
    ```shell
    bluetoothctl
-   scan on           # wait for the PT-210 to appear, note its MAC
-   pair <MAC>        # PIN is usually 0000 or 1234
+   power on          # if the adapter says NotReady
+   scan on           # wait for the printer to appear, note its MAC
+   pair <MAC>        # while scanning; PIN is 0000
    trust <MAC>
    quit
    ```
 
-3. Create `src/config.local.ini` with your device-specific values (this
+4. Create `src/config.local.ini` with your device-specific values (this
    file is gitignored and overrides `config.ini`, so `git pull` never
    conflicts with it - don't edit `config.ini` itself):
 
@@ -71,7 +84,7 @@ Scryfall** link and a **Print QR** button for a standalone QR slip.
    ap_password = your-hotspot-password
    ```
 
-4. Run setup (installs deps, binds the printer to `/dev/rfcomm0` at boot,
+5. Run setup (installs deps, binds the printer to `/dev/rfcomm0` at boot,
    installs the app service, the `momir` CLI, the login banner, and the
    rescue-hotspot watchdog):
 
@@ -80,7 +93,9 @@ Scryfall** link and a **Print QR** button for a standalone QR slip.
    sudo ./setup.sh
    ```
 
-5. Open `http://momir.local:8080` on your phone (or the Pi's IP).
+6. Open `http://momir.local:8080` on your phone (or the Pi's IP). After
+   a print, check the printer status line on the page ("Printer:
+   connected/offline"), or `momir status` from a shell.
 
    **The first run downloads the whole card database - plan for it.** It
    pulls ~17,000 creatures' data and art from Scryfall (a few hundred MB,
@@ -95,13 +110,13 @@ Scryfall** link and a **Print QR** button for a standalone QR slip.
    du -sh ~/Public/momir-pocket-printer/cards    # watch the size grow
    ```
 
-   Tip: you can run the download *before* your printer arrives - do steps
-   1 and 4 (without a printer MAC, setup installs everything except the
-   printer link and ends with pairing instructions - the web app is
-   already up), then run `momir update` inside `tmux` and let it finish
-   overnight. If the
-   download dies partway, just run it again - it resumes where it left
-   off. After the first sync, updates are incremental and take minutes.
+   Tip: you can run the download *before* your printer arrives - do
+   steps 1 and 5 (without a printer MAC, setup installs everything
+   except the printer link and ends with pairing instructions - the web
+   app is already up), then run `momir update` inside `tmux` and let it
+   finish overnight. If the download dies partway, just run it again -
+   it resumes where it left off. After the first sync, updates are
+   incremental and take minutes.
 
 ### Hotspot mode (play anywhere, let friends print)
 
@@ -111,7 +126,7 @@ anyone at the table joins the Pi's Wi-Fi and gets the print page.
 1. Do the first-time setup above **on your home network first** - the card
    database download needs internet, and in hotspot mode the Pi's Wi-Fi has
    none.
-2. In `src/config.ini`, set:
+2. In `src/config.local.ini`, set:
 
    ```ini
    [WIFI]
@@ -127,8 +142,13 @@ anyone at the table joins the Pi's Wi-Fi and gets the print page.
    QR codes - scan to join the Wi-Fi, scan to open the page. Hand it to the
    table.
 
-While in hotspot mode the app skips card database refreshes and plays from
-local data. **After the first setup you never need SSH for mode switching:**
+While in hotspot mode the app skips card database refreshes and plays
+from local data - once the database is downloaded, gameplay (draws,
+prints, art, on-screen QRs) needs no internet at all, so a Scryfall
+outage or a basement game store changes nothing. Phones connected to
+the hotspot keep their own internet via cellular data automatically
+(Android may ask "stay connected?" - say yes), which is how the
+Scryfall QR links still open at the table. **After the first setup you never need SSH for mode switching:**
 the host panel in the web app has a `Hotspot: on/off` toggle that flips the
 Pi between hotspot and home Wi-Fi (heads-up prompts tell you where to
 reconnect). `ap_enabled` in config just controls the state after running
@@ -166,7 +186,7 @@ check is skipped gracefully and play continues on local data.
 With `[ACCESS] access_control_enabled = True` (the default), new devices
 can't print until the host approves them:
 
-1. **Change `admin_pin` in `src/config.ini`** before game night.
+1. **Set `admin_pin` in `src/config.local.ini`** before game night.
 2. On your own phone, tap **I'm the host** and enter the PIN. Your device
    becomes the host and gets a Players panel.
 3. Friends open the page, enter their name, and tap **Ask to join**. They
@@ -180,8 +200,9 @@ printer.
 ### USB mode
 
 If your PT-210's USB port does data (many clones do), you can use a cable
-instead of Bluetooth: set `connection_mode = usb` in `src/config.ini`, fill
-in `vendor_id`/`product_id` from `lsusb`, and re-run `sudo ./setup.sh`.
+instead of Bluetooth: set `connection_mode = usb` in
+`src/config.local.ini`, fill in `vendor_id`/`product_id` from `lsusb`,
+and re-run `sudo ./setup.sh`.
 
 ## Day-to-day admin
 
@@ -191,6 +212,7 @@ live status (services, network mode, card count) plus any warnings
 
 ```shell
 momir update           # fetch new cards after a set release (home mode)
+momir update full      # re-download everything (hours; after art-setting changes)
 momir pull             # git pull latest code + restart the service
 momir hotspot on|off   # switch network mode (also on the web host panel)
 momir wifi <ssid> [pw] # set the home Wi-Fi network (also on the host panel)
@@ -247,9 +269,33 @@ appear, and `pair <MAC>` **while the scan is still running**. If the
 adapter says NotReady, run `power on` in bluetoothctl first (and
 `sudo rfkill unblock bluetooth` if that fails).
 
-**Printer won't print:** check the Bluetooth binding with
-`sudo systemctl status momir-rfcomm` - it auto-reconnects every 10s while
-the printer is off or out of range. `momir logs` shows both services live.
+**Printer won't print:** check connectivity anywhere it surfaces - the
+"Printer: connected/offline" line on the web page, `momir status`, the
+SSH login banner, or the printer's antenna LED (steady = connected).
+The rfcomm binding auto-reconnects every 10s while the printer is off
+or out of range, so powering the printer on is usually the whole fix.
+`momir logs` shows both services live.
+
+**Prints come out blank:** the paper roll is in backwards - thermal
+paper only prints on one side. Flip the roll (see the printer prep
+step).
+
+**Art prints too dark:** downloaded art gets a brightness/contrast
+boost before dithering (`art_brightness` / `art_contrast` under
+`[SCRYFALL]`). Changing them affects newly downloaded art; run
+`momir update full` overnight to re-process the whole library.
+
+## Momir Online (no Pi needed)
+
+A companion static page lives at
+[operations.dev/momir](https://operations.dev/momir) (also
+`momir.operations.dev`): the same mana-value grid, but it asks the
+Scryfall API for a random creature directly from the browser - no
+backend, no database, full-color card images, and a Show QR button for
+table sharing. Source is [`/momir/index.html`](../momir/index.html) in
+this repo, served by GitHub Pages. Trade-off vs. the Pi: it needs
+internet and depends on Scryfall being up; the Pi plays fully offline
+from its local database.
 
 ## Momir Basic rules
 
