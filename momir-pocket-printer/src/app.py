@@ -29,7 +29,11 @@ config = configparser.ConfigParser()
 config_file = Path(__file__).resolve().with_name('config.ini')
 if not config_file.exists():
     raise FileNotFoundError(f"Configuration file not found: {config_file}")
-config.read(config_file, encoding='utf-8')
+# config.local.ini (gitignored) overrides config.ini - put device-specific
+# values there (bluetooth_mac, admin_pin, Wi-Fi passwords) so git pull
+# never conflicts with local edits.
+local_config_file = config_file.with_name('config.local.ini')
+config.read([config_file, local_config_file], encoding='utf-8')
 
 required_sections = ['APP', 'FILESYSTEM', 'LOGGING', 'PRINTER', 'SCRYFALL']
 missing_sections = [s for s in required_sections if s not in config]

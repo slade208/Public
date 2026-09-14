@@ -8,12 +8,20 @@ ENV_FILE=/etc/momir-pocket-printer.env
 [[ -n "${MOMIR_CONFIG:-}" && -f "$MOMIR_CONFIG" ]] || exit 0
 PROJECT_DIR="$(dirname "$(dirname "$MOMIR_CONFIG")")"
 
+LOCAL_CONFIG="${MOMIR_CONFIG%.ini}.local.ini"
+
 get_config() {
-    awk -F' *= *' -v section="[$1]" -v key="$2" '
+    # config.local.ini overrides config.ini
+    local f val
+    for f in "$LOCAL_CONFIG" "$MOMIR_CONFIG"; do
+        [[ -f "$f" ]] || continue
+        val=$(awk -F' *= *' -v section="[$1]" -v key="$2" '
         $0 == section { in_section=1; next }
         /^\[/ { in_section=0 }
         in_section && $1 == key { print $2; exit }
-    ' "$MOMIR_CONFIG"
+    ' "$f")
+        if [[ -n "$val" ]]; then echo "$val"; return; fi
+    done
 }
 
 B=$(tput bold 2>/dev/null || true)

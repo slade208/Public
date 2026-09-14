@@ -3,3 +3,4 @@ __pycache__/
 momir-pocket-printer/.venv/
 momir-pocket-printer/cards/
 devices.json
+config.local.ini

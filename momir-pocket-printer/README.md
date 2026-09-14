@@ -56,8 +56,20 @@ want one.
    quit
    ```
 
-3. Edit `src/config.ini`: the printer's MAC into `[PRINTER] bluetooth_mac`,
-   and change `[ACCESS] admin_pin` from the default.
+3. Create `src/config.local.ini` with your device-specific values (this
+   file is gitignored and overrides `config.ini`, so `git pull` never
+   conflicts with it - don't edit `config.ini` itself):
+
+   ```ini
+   [PRINTER]
+   bluetooth_mac = AA:BB:CC:DD:EE:FF
+
+   [ACCESS]
+   admin_pin = your-pin
+
+   [WIFI]
+   ap_password = your-hotspot-password
+   ```
 
 4. Run setup (installs deps, binds the printer to `/dev/rfcomm0` at boot,
    installs the app service, the `momir` CLI, the login banner, and the

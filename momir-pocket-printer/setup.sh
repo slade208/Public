@@ -15,13 +15,20 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+LOCAL_CONFIG_FILE="$PROJECT_DIR/src/config.local.ini"
+
 get_config() {
-    # get_config SECTION key -> value
-    awk -F' *= *' -v section="[$1]" -v key="$2" '
+    # get_config SECTION key -> value (config.local.ini overrides config.ini)
+    local f val
+    for f in "$LOCAL_CONFIG_FILE" "$CONFIG_FILE"; do
+        [[ -f "$f" ]] || continue
+        val=$(awk -F' *= *' -v section="[$1]" -v key="$2" '
         $0 == section { in_section=1; next }
         /^\[/ { in_section=0 }
         in_section && $1 == key { print $2; exit }
-    ' "$CONFIG_FILE"
+    ' "$f")
+        if [[ -n "$val" ]]; then echo "$val"; return; fi
+    done
 }
 
 CONNECTION_MODE="$(get_config PRINTER connection_mode)"
