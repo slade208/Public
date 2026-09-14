@@ -108,6 +108,65 @@
     margin-top: 12px;
   }
   #qrBox[hidden] { display: none; }
+  #historyBtn {
+    display: block;
+    margin: 20px auto 8px;
+    padding: 10px 18px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--panel);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #historyBtn:active { color: var(--text); border-color: var(--accent); }
+  #historyModal[hidden] { display: none; }
+  #historyModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 10;
+  }
+  .hist-box {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: left;
+  }
+  .hist-title { font-size: 1rem; margin: 0 0 10px; text-align: center; }
+  .hist-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+  }
+  .hist-row:active { background: rgba(255,255,255,0.05); }
+  .hist-name { font-weight: 600; font-size: 0.9rem; }
+  .hist-type { color: var(--muted); font-size: 0.75rem; }
+  .hist-mv {
+    flex-shrink: 0;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .hist-empty { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 14px 0; }
+  .hist-actions { text-align: center; margin-top: 10px; }
+  .hist-actions button {
+    border: 1px solid #6e3030;
+    border-radius: 8px;
+    background: none;
+    color: #d98080;
+    padding: 7px 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
   .close-btn {
     display: block;
     width: 100%;
@@ -132,6 +191,8 @@
 
   <div class="grid" id="grid"></div>
 
+  <button id="historyBtn">Summon history</button>
+
   <footer>
     Powered by the <a href="https://scryfall.com/docs/api" rel="noopener">Scryfall API</a>.
     Same rules as the <a href="https://github.com/slade208/Public/tree/main/momir-pocket-printer" rel="noopener">Momir Pocket Printer</a>:
@@ -148,6 +209,17 @@
       </div>
       <div id="qrBox" hidden></div>
       <button class="close-btn" id="closeBtn">Done</button>
+    </div>
+  </div>
+
+  <div id="historyModal" hidden>
+    <div class="card-box hist-box">
+      <h2 class="hist-title">Summon history</h2>
+      <div id="historyList"></div>
+      <div class="hist-actions">
+        <button id="clearHistory">Clear history</button>
+      </div>
+      <button class="close-btn" id="historyClose">Done</button>
     </div>
   </div>
 
@@ -198,19 +270,15 @@ async function summon(cmc) {
       const card = await res.json();
       const faces = card.card_faces && card.card_faces[0].image_uris
                     ? card.card_faces[0].image_uris : card.image_uris;
-      const img = document.getElementById('cardImg');
-      img.src = faces ? faces.normal : '';
-      img.alt = card.name;
-      document.getElementById('cardLink').href = card.scryfall_uri;
-      const qrBox = document.getElementById('qrBox');
-      qrBox.hidden = true;
-      qrBox.innerHTML = '';
-      qrBox.dataset.uri = card.scryfall_uri;
-      document.getElementById('showQr').textContent = 'Show QR';
       const pt = (card.power != null && card.toughness != null)
                  ? ' (' + card.power + '/' + card.toughness + ')' : '';
+      const entry = {
+        n: card.name, mv: cmc, t: card.type_line || '', pt: pt,
+        i: faces ? faces.normal : '', u: card.scryfall_uri, ts: Date.now()
+      };
+      recordHistory(entry);
+      displayCard(entry);
       showStatus('Summoned: ' + card.name + pt, card.type_line || '');
-      document.getElementById('cardModal').hidden = false;
       if (navigator.vibrate) navigator.vibrate(80);
     }
   } catch (e) {
@@ -219,6 +287,90 @@ async function summon(cmc) {
   busy = false;
   setDisabled(false);
 }
+
+function displayCard(entry) {
+  const img = document.getElementById('cardImg');
+  img.src = entry.i || '';
+  img.alt = entry.n;
+  document.getElementById('cardLink').href = entry.u;
+  const qrBox = document.getElementById('qrBox');
+  qrBox.hidden = true;
+  qrBox.innerHTML = '';
+  qrBox.dataset.uri = entry.u;
+  document.getElementById('showQr').textContent = 'Show QR';
+  document.getElementById('cardModal').hidden = false;
+}
+
+// ===== Summon history (per-device, localStorage) =====
+const HIST_KEY = 'momir_history';
+const HIST_MAX = 100;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; }
+  catch (e) { return []; }
+}
+function saveHistory(list) {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(list)); } catch (e) {}
+  updateHistoryBtn();
+}
+function recordHistory(entry) {
+  const list = loadHistory();
+  list.unshift(entry);
+  saveHistory(list.slice(0, HIST_MAX));
+}
+function updateHistoryBtn() {
+  const n = loadHistory().length;
+  document.getElementById('historyBtn').textContent =
+    n ? 'Summon history (' + n + ')' : 'Summon history';
+}
+function renderHistory() {
+  const box = document.getElementById('historyList');
+  box.innerHTML = '';
+  const list = loadHistory();
+  if (!list.length) {
+    const d = document.createElement('div');
+    d.className = 'hist-empty';
+    d.textContent = 'Nothing summoned yet';
+    box.appendChild(d);
+    return;
+  }
+  list.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    const left = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'hist-name';
+    name.textContent = e.n + (e.pt || '');
+    const type = document.createElement('div');
+    type.className = 'hist-type';
+    type.textContent = e.t;
+    left.appendChild(name); left.appendChild(type);
+    const mv = document.createElement('div');
+    mv.className = 'hist-mv';
+    mv.textContent = 'MV ' + e.mv;
+    row.appendChild(left); row.appendChild(mv);
+    row.onclick = () => {
+      document.getElementById('historyModal').hidden = true;
+      displayCard(e);
+    };
+    box.appendChild(row);
+  });
+}
+document.getElementById('historyBtn').onclick = () => {
+  renderHistory();
+  document.getElementById('historyModal').hidden = false;
+};
+document.getElementById('historyClose').onclick =
+  () => { document.getElementById('historyModal').hidden = true; };
+document.getElementById('historyModal').onclick = (e) => {
+  if (e.target.id === 'historyModal') e.target.hidden = true;
+};
+document.getElementById('clearHistory').onclick = () => {
+  if (!confirm('Clear all summon history on this device?')) return;
+  saveHistory([]);
+  renderHistory();
+};
+updateHistoryBtn();
 
 document.getElementById('closeBtn').onclick =
   () => { document.getElementById('cardModal').hidden = true; };
