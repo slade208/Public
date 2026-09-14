@@ -100,6 +100,14 @@
     font-size: 0.8rem;
     cursor: pointer;
   }
+  #qrBox {
+    display: inline-block;
+    background: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 12px;
+  }
+  #qrBox[hidden] { display: none; }
   .close-btn {
     display: block;
     width: 100%;
@@ -136,12 +144,15 @@
       <img id="cardImg" alt="">
       <div class="card-links">
         <a id="cardLink" href="#" target="_blank" rel="noopener">View on Scryfall &#8599;</a>
+        <button id="showQr">Show QR</button>
         <button id="again">Same cost again</button>
       </div>
+      <div id="qrBox" hidden></div>
       <button class="close-btn" id="closeBtn">Done</button>
     </div>
   </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const CMC_MIN = 0, CMC_MAX = 16;
 const grid = document.getElementById('grid');
@@ -194,6 +205,11 @@ async function summon(cmc) {
       img.src = faces ? faces.normal : '';
       img.alt = card.name;
       document.getElementById('cardLink').href = card.scryfall_uri;
+      const qrBox = document.getElementById('qrBox');
+      qrBox.hidden = true;
+      qrBox.innerHTML = '';
+      qrBox.dataset.uri = card.scryfall_uri;
+      document.getElementById('showQr').textContent = 'Show QR';
       const pt = (card.power != null && card.toughness != null)
                  ? ' (' + card.power + '/' + card.toughness + ')' : '';
       showStatus('Summoned: ' + card.name + pt, card.type_line || '');
@@ -212,6 +228,24 @@ document.getElementById('closeBtn').onclick =
 document.getElementById('cardModal').onclick = (e) => {
   if (e.target.id === 'cardModal') e.target.hidden = true;
 };
+document.getElementById('showQr').onclick = () => {
+  // QR of the card's Scryfall page, so others at the table can scan it
+  // off this screen (then sharpie their proxy).
+  const qrBox = document.getElementById('qrBox');
+  const btn = document.getElementById('showQr');
+  if (qrBox.hidden) {
+    if (!qrBox.hasChildNodes() && window.QRCode) {
+      new QRCode(qrBox, { text: qrBox.dataset.uri, width: 168, height: 168,
+                          correctLevel: QRCode.CorrectLevel.M });
+    }
+    qrBox.hidden = false;
+    btn.textContent = 'Hide QR';
+  } else {
+    qrBox.hidden = true;
+    btn.textContent = 'Show QR';
+  }
+};
+
 document.getElementById('again').onclick = () => {
   document.getElementById('cardModal').hidden = true;
   if (lastCmc !== null) summon(lastCmc);
