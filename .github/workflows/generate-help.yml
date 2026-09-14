@@ -51,6 +51,8 @@ jobs:
               *) bash colorize.sh "$f" > "_site/$f" ;;
             esac
           done
+          # Site subdirectories ship as-is (the loop above is files-only).
+          cp -r momir _site/
 
       # upload-pages-artifact v4+ drops dotfiles from the artifact. Harmless
       # here: the build loop above globs `*`, which never matched them anyway.
