@@ -276,6 +276,15 @@ The rfcomm binding auto-reconnects every 10s while the printer is off
 or out of range, so powering the printer on is usually the whole fix.
 `momir logs` shows both services live.
 
+**Printer won't charge (no LED when plugged in):** cheap USB-C devices
+often lack the resistors that make USB-C-to-C cables deliver power, so
+a C-to-C cable from a modern charger silently does nothing. Charge with
+a **USB-A to USB-C cable** (field-verified on the PT-210), or the
+included AC adapter/battery cradle if your unit shipped one. Orange
+LED steady = charging, flashing = charge error (check temperature and
+reseat the battery). A deeply drained pack can take several minutes
+before the LED lights.
+
 **Prints come out blank:** the paper roll is in backwards - thermal
 paper only prints on one side. Flip the roll (see the printer prep
 step).
