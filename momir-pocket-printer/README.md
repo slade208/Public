@@ -56,6 +56,11 @@ mode with no printer.
    the offline self-test: printer off, hold FEED, press POWER, release
    on the beep - a test page prints with no software involved.
 
+   Video walkthroughs for the PT-210:
+   [loading paper](https://manuals.plus/video/ebd15f59e4ef119ab339263144f1339a8536d25e9730e74b8a99e207d49a1c67),
+   [battery + paper + setup](https://manuals.plus/video/33cd5539358247481431167d38556ad083032d24d07fd54c07453d7a101f72b5),
+   [general setup and printing](https://manuals.plus/video/257c7244153a61e789292df33e14227bd3a49205dea957eb3836fb90add13ee7).
+
 3. Pair the printer (one time). The device advertises as `PT210_xxxx`,
    `MTP-II`, or `PT200`, and you must pair **while the scan is still
    running** (BlueZ flushes unpaired devices when scanning stops):
