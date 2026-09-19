@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set
 import gzip
 import ijson
 import requests
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 logger = logging.getLogger('momir.scryfall')
 
@@ -70,10 +70,6 @@ class Scryfall:
             'request_delay_seconds')
         self.max_retries: int = scryfall_config.getint('max_retries')
         self.art_width_px: int = scryfall_config.getint('art_width_px')
-        self.art_brightness: float = scryfall_config.getfloat(
-            'art_brightness', fallback=1.0)
-        self.art_contrast: float = scryfall_config.getfloat(
-            'art_contrast', fallback=1.0)
         self.include_spoilers: bool = scryfall_config.getboolean(
             'include_spoilers', fallback=True)
 
@@ -464,46 +460,24 @@ class Scryfall:
     # Card Data Extraction Helpers
 
     def _get_card_art_uri(self, card: Dict[str, Any]) -> Optional[str]:
-        """Extract art crop URI from card data.
+        """Extract the full card-face image URI from card data.
+
+        The stored image is the full color card face ('normal' size,
+        488x680): art isn't printed anymore, so the image's only job is
+        looking like the real card in the web UI - including offline.
 
         Args:
             card: Card data dictionary
 
         Returns:
-            Art crop URI string or None if not found
+            Card image URI string or None if not found
         """
-        return (card.get('card_faces', [{}])[0].get('image_uris', {}).get('art_crop')
-                or card.get('image_uris', {}).get('art_crop'))
-
-    # Image Processing Helpers
-
-    def _process_image(self, image_bytes: bytes) -> Image.Image:
-        """Process image: resize, enhance, and convert to grayscale.
-
-        Art is stored as enhanced grayscale rather than pre-dithered 1-bit:
-        the ESC/POS layer dithers at print time, and grayscale both dithers
-        better and displays better in the web UI. Brightness/contrast are
-        boosted (configurable) because thermal prints tend to run dark.
-
-        Args:
-            image_bytes: Raw image bytes
-
-        Returns:
-            Processed PIL Image object
-        """
-        img = Image.open(BytesIO(image_bytes))
-
-        # Calculate new dimensions maintaining aspect ratio
-        w_percent = self.art_width_px / float(img.size[0])
-        h_size = int(float(img.size[1]) * w_percent)
-
-        img = img.resize((self.art_width_px, h_size), Image.Resampling.LANCZOS)
-        img = img.convert('L')
-        if self.art_brightness != 1.0:
-            img = ImageEnhance.Brightness(img).enhance(self.art_brightness)
-        if self.art_contrast != 1.0:
-            img = ImageEnhance.Contrast(img).enhance(self.art_contrast)
-        return img
+        for uris in (card.get('card_faces', [{}])[0].get('image_uris', {}),
+                     card.get('image_uris', {})):
+            uri = uris.get('normal') or uris.get('large') or uris.get('art_crop')
+            if uri:
+                return uri
+        return None
 
     # Data Processing and Cleanup Helpers
 
@@ -555,9 +529,16 @@ class Scryfall:
                     allow_redirects=True)
 
                 if response.status_code == self.HTTP_OK:
-                    img = self._process_image(response.content)
-                    img.save(path)
-                    logger.debug(f"Saved card art: {path.name}")
+                    # Cheap sanity check that this is really an image,
+                    # then store Scryfall's JPEG bytes verbatim - no
+                    # re-encoding work on the Pi.
+                    try:
+                        Image.open(BytesIO(response.content)).verify()
+                    except Exception:
+                        logger.warning(f"Response was not an image: {uri}")
+                        return False
+                    path.write_bytes(response.content)
+                    logger.debug(f"Saved card image: {path.name}")
                     sleep(self.request_delay_seconds)
                     return True
 
@@ -608,7 +589,7 @@ class Scryfall:
         candidates = [card_art_uri]
         if card_id:
             candidates.append(
-                f"{self.base_url}/cards/{card_id}?format=image&version=art_crop")
+                f"{self.base_url}/cards/{card_id}?format=image&version=normal")
 
         for uri in candidates:
             if self._try_download_art(path, uri, headers):

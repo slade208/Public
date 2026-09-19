@@ -220,7 +220,7 @@
     margin-bottom: 10px;
   }
   #cmMana { white-space: nowrap; color: var(--muted); font-weight: 600; }
-  #cmArt { width: 100%; border-radius: 8px; margin-bottom: 10px; }
+  #cmArt { width: 100%; border-radius: 4.5% / 3.2%; margin-bottom: 10px; }
   .card-type { color: var(--muted); font-size: 0.85rem; margin-bottom: 8px; }
   .card-text { font-size: 0.9rem; line-height: 1.4; white-space: pre-wrap; }
   .card-pt { text-align: right; font-weight: 700; font-size: 1.1rem; margin-top: 8px; }
@@ -361,10 +361,22 @@ modeBtn.onclick = () => {
 };
 renderMode();
 
+const cmTextEls = ['cmType', 'cmText', 'cmPT', 'cmSet'];
+
 function showCard(c, note) {
   document.getElementById('cmName').textContent = c.name || '';
   document.getElementById('cmMana').textContent = c.mana_cost || '';
+  // The stored image is the full card face (kept offline on the Pi), so
+  // it replaces the text fields - which stay as the fallback when the
+  // image is missing, or when it's a legacy grayscale art crop from
+  // before the library was re-downloaded (those are landscape).
   const art = document.getElementById('cmArt');
+  cmTextEls.forEach(id => { document.getElementById(id).hidden = false; });
+  art.onload = () => {
+    const isCardFace = art.naturalHeight > art.naturalWidth * 1.15;
+    cmTextEls.forEach(id => { document.getElementById(id).hidden = isCardFace; });
+  };
+  art.onerror = () => { art.hidden = true; };
   if (c.art_url) { art.src = c.art_url; art.hidden = false; }
   else { art.hidden = true; }
   document.getElementById('cmType').textContent = c.type_line || '';

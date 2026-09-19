@@ -26,13 +26,16 @@ switches between printing cards and displaying them in the browser.
 
 **Printed cards are sleeve-sized by design:** 58mm paper fits a standard
 card sleeve, and the default print is compact - name and cost, a small
-Scryfall QR (scan for art and details), type, rules text, P/T. Card art
-and set name show in the web app instead of on paper (`card_art_enabled`
-/ `print_set_enabled` / `qr_code_enabled` / `qr_code_size` in config turn
-things back on or resize them). The card overlay also has a **View on
-Scryfall** link and a **Show QR** button that displays the QR on the
-phone screen so others at the table can scan it - useful in screen-only
-mode with no printer.
+Scryfall QR (scan for details), type, rules text, P/T. On the phone,
+the card overlay shows the **real full-color card image** - stored
+locally on the Pi during the card sync, so it works with no internet
+and no Scryfall (the text fields appear instead if an image is ever
+missing). Print options live in config (`card_art_enabled` /
+`print_set_enabled` / `qr_code_enabled` / `qr_code_size`). The overlay
+also has a **View on Scryfall** link for rulings, prices and printings,
+and a **Show QR** button that displays the QR on the phone screen so
+others at the table can scan it - useful in screen-only mode with no
+printer.
 
 Tore a print wrong on the cutter? A **Reprint last card** button appears
 under the grid once you've summoned; it reprints *your* last creature
@@ -110,9 +113,11 @@ know at a glance whether it's time to update after a set release.
    connected/offline"), or `momir status` from a shell.
 
    **The first run downloads the whole card database - plan for it.** It
-   pulls ~17,000 creatures' data and art from Scryfall (a few hundred MB,
-   with polite rate-limiting on every image). On a Pi Zero over Wi-Fi
-   expect **a few hours**; a Pi 4 on good Wi-Fi is faster. Keep the Pi on
+   pulls ~17,000 creatures' data plus each card's full-color card image
+   from Scryfall (roughly 1-2GB total, with polite rate-limiting on
+   every image - the images are what make the phone overlay show the
+   real card, fully offline). On a Pi Zero over Wi-Fi
+   expect **several hours**; a Pi 4 on good Wi-Fi is faster. Keep the Pi on
    wall power for it. The web page shows "downloading card database"
    status the whole time, and printing works as soon as it finishes. Ways
    to watch from a terminal:
@@ -244,7 +249,7 @@ live status (services, network mode, card count) plus any warnings
 
 ```shell
 momir update           # fetch new cards after a set release (home mode)
-momir update full      # re-download everything (hours; after art-setting changes)
+momir update full      # re-download everything (hours; after image-setting changes)
 momir pull             # git pull latest code + restart the service
 momir hotspot on|off   # switch network mode (also on the web host panel)
 momir wifi <ssid> [pw] # set the home Wi-Fi network (also on the host panel)
@@ -321,10 +326,10 @@ before the LED lights.
 paper only prints on one side. Flip the roll (see the printer prep
 step).
 
-**Art prints too dark:** downloaded art gets a brightness/contrast
-boost before dithering (`art_brightness` / `art_contrast` under
-`[SCRYFALL]`). Changing them affects newly downloaded art; run
-`momir update full` overnight to re-process the whole library.
+**Card overlay shows grayscale art instead of the real card:** the
+library was downloaded before full-color card images were stored. Run
+`momir update full` overnight (on home Wi-Fi) to re-download every
+image; until then the overlay shows the old art plus the text fields.
 
 ## Momir Online (no Pi needed)
 
