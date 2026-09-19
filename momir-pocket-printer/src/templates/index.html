@@ -66,7 +66,7 @@
     font-size: 0.85rem;
     min-height: 1.4em;
   }
-  #ticket {
+  #ticket, #reprint {
     display: block;
     margin: 20px auto 8px;
     padding: 10px 18px;
@@ -77,7 +77,16 @@
     border-radius: 10px;
     cursor: pointer;
   }
-  #ticket:active { color: var(--text); border-color: var(--accent); }
+  #ticket:active, #reprint:active { color: var(--text); border-color: var(--accent); }
+  #reprint { margin-top: 14px; }
+  #reprint[hidden] { display: none; }
+  #dbInfo {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.7rem;
+    margin-top: 10px;
+    min-height: 1em;
+  }
   .gate-text { text-align: center; color: var(--muted); }
   #playerName {
     display: block;
@@ -276,6 +285,9 @@
 
     <div id="last"></div>
 
+    <button id="reprint" hidden>&#128424; Reprint last card</button>
+    <div id="dbInfo"></div>
+
     <button id="ticket">Print Wi-Fi join ticket</button>
     <button id="hostLink2" class="linkish" hidden>I'm the host</button>
   </div>
@@ -408,6 +420,7 @@ async function printCmc(cmc, btn) {
       const verb = data.ok ? (endpoint === '/print' ? 'Printed: ' : 'Summoned: ') : 'Summoned: ';
       showStatus(verb + c.name + pt, c.type_line || '');
       lastBox.textContent = 'Last creature: ' + c.name;
+      reprintBtn.hidden = false;
       showCard(c, data.ok ? '' : (data.error || 'Printer unavailable'));
       if (navigator.vibrate) navigator.vibrate(80);
     } else {
@@ -419,6 +432,31 @@ async function printCmc(cmc, btn) {
   busy = false;
   setButtonsDisabled(false);
 }
+
+// Reprint the requester's own last summon - for cards torn wrong on the
+// cutter. The server remembers each device's last card, so this survives
+// page reloads.
+const reprintBtn = document.getElementById('reprint');
+reprintBtn.onclick = async () => {
+  if (busy) return;
+  busy = true;
+  setButtonsDisabled(true);
+  showStatus('Reprinting…', 'Same creature, fresh paper');
+  try {
+    const res = await fetch('/reprint', {method: 'POST'});
+    const data = await res.json();
+    if (data.ok) {
+      showStatus('Reprinted: ' + data.card.name, 'Tear carefully this time');
+      if (navigator.vibrate) navigator.vibrate(80);
+    } else {
+      showStatus('Nope', data.error || 'Reprint failed');
+    }
+  } catch (e) {
+    showStatus('Connection lost', 'Is the Pi awake and on the same network?');
+  }
+  busy = false;
+  setButtonsDisabled(false);
+};
 
 document.getElementById('ticket').onclick = async () => {
   if (busy) return;
@@ -450,6 +488,12 @@ async function pollStatus() {
     }
     if (s.last_card && !lastBox.textContent) {
       lastBox.textContent = 'Last print: ' + s.last_card.name;
+    }
+    if (s.db && (s.db.newest_set_name || s.db.updated_at)) {
+      const parts = [];
+      if (s.db.newest_set_name) parts.push('Cards through ' + s.db.newest_set_name);
+      if (s.db.updated_at) parts.push('updated ' + s.db.updated_at.slice(0, 10));
+      document.getElementById('dbInfo').textContent = parts.join(' · ');
     }
     const ps = document.getElementById('printerStatus');
     if (typeof s.printer === 'boolean') {
@@ -627,6 +671,7 @@ async function refreshRole() {
       return;
     }
     if (hostPoller) { clearInterval(hostPoller); hostPoller = null; }
+    if (meInfo.can_reprint) reprintBtn.hidden = false;
     show(document.getElementById('hostLink2'),
          meInfo.access_control && myRole !== 'host');
     if (myRole === 'host') {

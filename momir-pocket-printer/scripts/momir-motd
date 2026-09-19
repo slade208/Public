@@ -66,7 +66,9 @@ METADATA="$PROJECT_DIR/cards/metadata.json"
 if [[ -f "$METADATA" ]]; then
     COUNT="$(grep -o '"total_card_count": *[0-9]*' "$METADATA" | grep -o '[0-9]*')"
     UPDATED="$(grep -o '"updated_at": *"[^"]*"' "$METADATA" | cut -d'"' -f4 | cut -dT -f1)"
+    NEWEST_SET="$(grep -o '"newest_set_name": *"[^"]*"' "$METADATA" | cut -d'"' -f4)"
     echo "  card library: ${COUNT:-?} creatures (Scryfall data from ${UPDATED:-unknown})"
+    [[ -n "$NEWEST_SET" ]] && echo "                cards through: $NEWEST_SET"
 else
     echo "  card library: ${R}EMPTY${N} - run: momir update"
 fi

@@ -77,6 +77,11 @@ _state = {
 }
 _print_lock = threading.Lock()
 
+# Last full card each device summoned, so a mis-torn print can be redone.
+# Keyed by device cookie (falls back to client IP when cookies are off).
+_summons_lock = threading.Lock()
+_last_summons = {}
+
 
 def _set_state(status: str, detail: str = '') -> None:
     with _state_lock:
@@ -153,10 +158,13 @@ def _require(*roles):
 def me():
     device_id = _get_device_id()
     device = _get_device(device_id)
+    with _summons_lock:
+        can_reprint = (device_id or request.remote_addr) in _last_summons
     payload = {
         'access_control': ACCESS_ENABLED,
         'role': 'approved' if not ACCESS_ENABLED else _device_role(device),
         'name': (device or {}).get('name', ''),
+        'can_reprint': can_reprint,
     }
     resp = make_response(jsonify(payload))
     if not device_id:
@@ -255,6 +263,7 @@ def _run_refresh() -> None:
             _set_state('refreshing', 'Checking Scryfall for card updates...')
         scryfall.refresh_card_data()
         _set_state('ready', '')
+        _db_info(force=True)  # show the new set on /status right away
         logger.info("Card data ready (%d cards).",
                     scryfall.get_total_card_count())
     except Exception as e:
@@ -315,11 +324,41 @@ def index():
     return render_template('index.html', cmc_min=CMC_MIN, cmc_max=CMC_MAX)
 
 
+# /status is polled every few seconds by every phone, so the card-database
+# info line is read from metadata.json at most once a minute.
+_db_info_lock = threading.Lock()
+_db_info_cache = {'read_at': 0.0, 'info': None}
+
+
+def _db_info(force: bool = False):
+    """Card database summary from metadata.json (cached)."""
+    with _db_info_lock:
+        if not force and time.time() - _db_info_cache['read_at'] < 60:
+            return _db_info_cache['info']
+        info = None
+        try:
+            metadata_path = scryfall.cards_path / scryfall.METADATA_FILENAME
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                meta = json.load(f)
+            info = {
+                'newest_set_name': meta.get('newest_set_name'),
+                'newest_released_at': meta.get('newest_released_at'),
+                'updated_at': meta.get('updated_at'),
+                'total_card_count': meta.get('total_card_count'),
+            }
+        except (OSError, json.JSONDecodeError):
+            pass
+        _db_info_cache['info'] = info
+        _db_info_cache['read_at'] = time.time()
+        return info
+
+
 @app.route('/status')
 def status():
     with _state_lock:
         payload = dict(_state)
     payload['printer'] = printer.is_connected()
+    payload['db'] = _db_info()
     return jsonify(payload)
 
 
@@ -444,6 +483,8 @@ def _draw_card(data):
             'cmc': cmc,
             'scryfall_uri': card.get('scryfall_uri'),
         }
+    with _summons_lock:
+        _last_summons[_get_device_id() or request.remote_addr] = card
     return card, None
 
 
@@ -544,6 +585,36 @@ def print_random_card():
                             'card': _card_payload(card)}), 502
 
         _set_state('ready', '')
+        return jsonify({'ok': True, 'card': _card_payload(card)})
+    finally:
+        _print_lock.release()
+
+
+@app.route('/reprint', methods=['POST'])
+def reprint_last_card():
+    """Reprint the requesting device's own last summon (for mis-torn prints)."""
+    err = _require('host', 'approved')
+    if err:
+        return err
+    with _summons_lock:
+        card = _last_summons.get(_get_device_id() or request.remote_addr)
+    if card is None:
+        return jsonify({'ok': False,
+                        'error': 'Nothing to reprint yet - summon a creature first'}), 404
+    if not _print_lock.acquire(blocking=False):
+        return jsonify({'ok': False, 'error': 'Already printing'}), 409
+    try:
+        _set_state('printing', card.get('name', ''))
+        try:
+            printer.print_card(card)
+        except Exception as e:
+            logger.error(f"Reprint failed: {e}")
+            _set_state('ready', '')
+            return jsonify({'ok': False,
+                            'error': 'Printer error - is it on and paired?',
+                            'card': _card_payload(card)}), 502
+        _set_state('ready', '')
+        logger.info(f"Reprinted: {card.get('name')}")
         return jsonify({'ok': True, 'card': _card_payload(card)})
     finally:
         _print_lock.release()

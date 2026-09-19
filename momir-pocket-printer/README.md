@@ -34,6 +34,13 @@ Scryfall** link and a **Show QR** button that displays the QR on the
 phone screen so others at the table can scan it - useful in screen-only
 mode with no printer.
 
+Tore a print wrong on the cutter? A **Reprint last card** button appears
+under the grid once you've summoned; it reprints *your* last creature
+(the Pi remembers one card per device, so someone else's summon can't
+clobber yours). The page footer also shows how current the offline card
+database is - "Cards through \<newest set\> - updated \<date\>" - so you
+know at a glance whether it's time to update after a set release.
+
 ## Setup
 
 1. Flash **Raspberry Pi OS Lite (64-bit)** with Raspberry Pi Imager. In the
@@ -185,6 +192,13 @@ The app checks Scryfall on every service start and syncs incrementally
 be in home mode (internet), then either tap **Update cards** on the host
 panel or restart the service / power-cycle the Pi. In hotspot mode the
 check is skipped gracefully and play continues on local data.
+
+To confirm an update landed, check the "Cards through \<set\>" line at
+the bottom of the web page (or the card-library line in the SSH banner) -
+it names the newest set in the local database and when it was last
+synced. Note that Scryfall lists cards as soon as they're previewed, but
+the app's `game:paper` filter usually admits them only around the set's
+paper release date, so a set may not appear until release week.
 
 ### Controlling who can print
 

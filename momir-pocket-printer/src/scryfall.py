@@ -604,19 +604,40 @@ class Scryfall:
                 "Unable to check for updates. Assuming no refresh needed.")
             return False
 
-    def generate_metadata(self, bulk_metadata: Optional[Dict[str, Any]] = None) -> None:
+    def generate_metadata(self, bulk_metadata: Optional[Dict[str, Any]] = None,
+                          newest_set_name: Optional[str] = None,
+                          newest_released_at: Optional[str] = None) -> None:
         """Generate metadata file with card counts and update timestamp.
 
         Args:
             bulk_metadata: Optional bulk metadata from Scryfall
+            newest_set_name: Name of the newest set seen in the pool
+            newest_released_at: Its release date (ISO)
         """
         metadata_path = self.cards_path / self.METADATA_FILENAME
 
+        # Preserve previously recorded values when regenerating without
+        # fresh stream stats / bulk metadata (e.g. the get_metadata side
+        # effect) - counts are recomputed, provenance is kept.
+        old = {}
+        if (newest_set_name is None or bulk_metadata is None) and metadata_path.exists():
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
+                    old = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                pass
+        if newest_set_name is None:
+            newest_set_name = old.get('newest_set_name')
+            newest_released_at = old.get('newest_released_at')
+
         metadata = {
-            'updated_at': bulk_metadata.get('updated_at') if bulk_metadata else None,
+            'newest_set_name': newest_set_name,
+            'newest_released_at': newest_released_at,
+            'updated_at': (bulk_metadata.get('updated_at') if bulk_metadata
+                           else old.get('updated_at')),
             'download_uri': ((bulk_metadata.get('jsonl_download_uri')
                               or bulk_metadata.get('download_uri'))
-                             if bulk_metadata else None),
+                             if bulk_metadata else old.get('download_uri')),
             'total_card_count': self.get_total_card_count(),
             'cmc_card_count': {str(cmc): self.get_card_count_by_cmc(cmc)
                                for cmc in self.get_valid_cmcs()}
@@ -738,7 +759,9 @@ class Scryfall:
             'total_creatures': 0,
             'new_cards': 0,
             'skipped_cards': 0,
-            'valid_card_ids': set()
+            'valid_card_ids': set(),
+            'newest_released_at': '',
+            'newest_set_name': '',
         }
 
         logger.info("Streaming bulk data from Scryfall...")
@@ -766,6 +789,13 @@ class Scryfall:
                             card_id = card['id']
                             cmc = int(card.get('cmc', 0))
                             stats['valid_card_ids'].add(card_id)
+
+                            # Track the newest set in the pool (ISO dates
+                            # compare correctly as strings).
+                            released = card.get('released_at') or ''
+                            if released > stats['newest_released_at']:
+                                stats['newest_released_at'] = released
+                                stats['newest_set_name'] = card.get('set_name') or ''
 
                             # Check if card already exists locally
                             if force_full_refresh or not self.card_exists_locally(card_id, cmc):
@@ -835,7 +865,10 @@ class Scryfall:
                             f"added {stats['new_cards']} new cards, removed {removed_cards} obsolete cards.")
 
             # Update metadata
-            self.generate_metadata(bulk_metadata)
+            self.generate_metadata(
+                bulk_metadata,
+                newest_set_name=stats.get('newest_set_name') or None,
+                newest_released_at=stats.get('newest_released_at') or None)
 
         except Exception as e:
             logger.error(f"Error during card refresh: {e}")
