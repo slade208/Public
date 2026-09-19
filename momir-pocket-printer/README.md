@@ -196,9 +196,22 @@ check is skipped gracefully and play continues on local data.
 To confirm an update landed, check the "Cards through \<set\>" line at
 the bottom of the web page (or the card-library line in the SSH banner) -
 it names the newest set in the local database and when it was last
-synced. Note that Scryfall lists cards as soon as they're previewed, but
-the app's `game:paper` filter usually admits them only around the set's
-paper release date, so a set may not appear until release week.
+synced.
+
+You don't have to track release dates yourself. Whenever the Pi is
+online (home mode) it quietly asks Scryfall for its set list - shortly
+after boot, roughly twice a day, and as soon as it's back online after
+a hotspot/field session - and when a set newer than the local database
+is out, everyone's page shows an amber "New set on Scryfall: ... - tap
+Update cards" notice until the host updates.
+
+Spoiler-season cards count: Scryfall doesn't mark new cards as
+paper-playable until release day, but the app admits cards from
+not-yet-released sets anyway, so a fully spoiled set is playable before
+its release weekend (sets releasing more than ~3 weeks out are ignored,
+since early previews are incomplete). Turn this off with
+`include_spoilers = False` under `[SCRYFALL]` if you want strictly
+released cards only.
 
 ### Controlling who can print
 

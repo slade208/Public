@@ -264,6 +264,10 @@ def _run_refresh() -> None:
         scryfall.refresh_card_data()
         _set_state('ready', '')
         _db_info(force=True)  # show the new set on /status right away
+        try:
+            _check_for_new_set()  # clears/updates the update-available notice
+        except Exception:
+            pass
         logger.info("Card data ready (%d cards).",
                     scryfall.get_total_card_count())
     except Exception as e:
@@ -353,12 +357,82 @@ def _db_info(force: bool = False):
         return info
 
 
+# ===== New-set availability check =====
+# One small Scryfall set-list request whenever the Pi is online, so
+# coming home from a field session surfaces "card update available"
+# without anyone having to track set release dates.
+
+UPDATE_CHECK_INTERVAL_S = 5 * 60      # how often the background loop wakes
+UPDATE_CHECK_MAX_AGE_S = 12 * 3600    # re-check at least this often while online
+
+_update_check_lock = threading.Lock()
+_update_check = {'available': False, 'set_name': '', 'set_code': '',
+                 'released_at': '', 'card_count': 0, 'checked_at': 0.0}
+
+
+def _check_for_new_set() -> None:
+    """Compare Scryfall's newest main set against the local database.
+
+    Raises on network failure so the caller knows the Pi is offline.
+    """
+    remote = scryfall.get_newest_remote_set()
+    local = _db_info() or {}
+    local_released = local.get('newest_released_at') or ''
+    # Without local newest-set info (older database) stay quiet - the
+    # next real update populates it and the check works from then on.
+    available = bool(remote and local_released
+                     and remote['released_at'] > local_released)
+    with _update_check_lock:
+        _update_check.update(
+            available=available,
+            set_name=remote['name'] if remote else '',
+            set_code=remote['code'] if remote else '',
+            released_at=remote['released_at'] if remote else '',
+            card_count=remote['card_count'] if remote else 0,
+            checked_at=time.time())
+    if available:
+        logger.info(f"New set available on Scryfall: {remote['name']} "
+                    f"({remote['card_count']} cards)")
+
+
+def _update_check_loop() -> None:
+    """Background thread: check for new sets whenever the Pi is online.
+
+    A check runs when the last one is stale, or as soon as the Pi is
+    back online after being in hotspot mode / offline - so reconnecting
+    to home Wi-Fi after a field session triggers a fresh check.
+    """
+    was_offline = False
+    while True:
+        time.sleep(UPDATE_CHECK_INTERVAL_S)
+        if _hotspot_active() is True:
+            was_offline = True
+            continue
+        with _update_check_lock:
+            age = time.time() - _update_check['checked_at']
+        if age < UPDATE_CHECK_MAX_AGE_S and not was_offline:
+            continue
+        try:
+            _check_for_new_set()
+            was_offline = False
+        except Exception as e:
+            logger.debug(f"New-set check skipped (no internet yet?): {e}")
+            was_offline = True
+
+
 @app.route('/status')
 def status():
     with _state_lock:
         payload = dict(_state)
     payload['printer'] = printer.is_connected()
     payload['db'] = _db_info()
+    with _update_check_lock:
+        if _update_check['available']:
+            payload['update_available'] = {
+                'set_name': _update_check['set_name'],
+                'released_at': _update_check['released_at'],
+                'card_count': _update_check['card_count'],
+            }
     return jsonify(payload)
 
 
@@ -657,6 +731,7 @@ def print_wifi_ticket():
 
 def main() -> None:
     threading.Thread(target=_run_refresh, daemon=True).start()
+    threading.Thread(target=_update_check_loop, daemon=True).start()
     host = app_config.get('listen_host', fallback='0.0.0.0')
     port = app_config.getint('listen_port', fallback=8080)
     logger.info(f"Momir Pocket Printer listening on http://{host}:{port}")

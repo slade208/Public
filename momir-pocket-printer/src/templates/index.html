@@ -87,6 +87,13 @@
     margin-top: 10px;
     min-height: 1em;
   }
+  #updateNotice {
+    text-align: center;
+    color: #e0a548;
+    font-size: 0.75rem;
+    margin-top: 6px;
+  }
+  #updateNotice[hidden] { display: none; }
   .gate-text { text-align: center; color: var(--muted); }
   #playerName {
     display: block;
@@ -287,6 +294,7 @@
 
     <button id="reprint" hidden>&#128424; Reprint last card</button>
     <div id="dbInfo"></div>
+    <div id="updateNotice" hidden></div>
 
     <button id="ticket">Print Wi-Fi join ticket</button>
     <button id="hostLink2" class="linkish" hidden>I'm the host</button>
@@ -494,6 +502,16 @@ async function pollStatus() {
       if (s.db.newest_set_name) parts.push('Cards through ' + s.db.newest_set_name);
       if (s.db.updated_at) parts.push('updated ' + s.db.updated_at.slice(0, 10));
       document.getElementById('dbInfo').textContent = parts.join(' · ');
+    }
+    const notice = document.getElementById('updateNotice');
+    if (s.update_available) {
+      notice.textContent = '✨ New set on Scryfall: ' + s.update_available.set_name
+        + ' (' + s.update_available.card_count + ' cards)'
+        + (myRole === 'host' ? ' — tap Update cards'
+                             : ' — ask the host to update');
+      notice.hidden = false;
+    } else {
+      notice.hidden = true;
     }
     const ps = document.getElementById('printerStatus');
     if (typeof s.printer === 'boolean') {

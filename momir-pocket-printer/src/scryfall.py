@@ -4,6 +4,7 @@ import json
 import logging
 import random
 import shutil
+from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
 from time import sleep
@@ -43,6 +44,11 @@ class Scryfall:
     PAPER_FORMAT = "paper"
     CREATURE_TYPE = "creature"
 
+    # Set types that count as "a new set came out" for the update check
+    # (leaves out tokens, promos, memorabilia and other side products).
+    MAIN_SET_TYPES = {"expansion", "core", "masters", "commander",
+                      "draft_innovation", "remastered"}
+
     def __init__(self, scryfall_config, filesystem_config) -> None:
         """Initialize Scryfall client with configuration.
 
@@ -68,6 +74,8 @@ class Scryfall:
             'art_brightness', fallback=1.0)
         self.art_contrast: float = scryfall_config.getfloat(
             'art_contrast', fallback=1.0)
+        self.include_spoilers: bool = scryfall_config.getboolean(
+            'include_spoilers', fallback=True)
 
         # Filter configuration
         self.excluded_sets: List[str] = [
@@ -256,9 +264,16 @@ class Scryfall:
         if card.get('set_type') in self.excluded_sets:
             return False
 
-        # Check if available in paper format
-        if self.PAPER_FORMAT not in card.get('games', []):
-            return False
+        # Check if available in paper format. Scryfall doesn't flag
+        # spoiler-season cards as 'paper' until release day, so cards
+        # whose set hasn't released yet are admitted too - a fully
+        # spoiled set can join the pool before its paper release.
+        if self.PAPER_FORMAT not in (card.get('games') or []):
+            if not self.include_spoilers:
+                return False
+            released = card.get('released_at') or ''
+            if released <= date.today().isoformat():
+                return False
 
         # Check if it's a creature (handle double-faced cards)
         if 'card_faces' in card:
@@ -296,6 +311,45 @@ class Scryfall:
                 else:
                     logger.error(f"Error fetching bulk metadata from {url}: {e}")
                     raise
+
+    def get_newest_remote_set(self, max_days_ahead: int = 21) -> Optional[Dict[str, Any]]:
+        """Ask Scryfall which main paper set is newest (one small request).
+
+        Powers the app's "card update available" notice. A single attempt
+        with the normal timeout so it fails fast when there's no internet
+        (hotspot mode). Sets releasing more than max_days_ahead days from
+        now are ignored - previews trickle in early, but a set is only
+        fully spoiled a few weeks before release.
+
+        Returns:
+            {'name', 'code', 'released_at', 'card_count', 'set_type'} for
+            the newest qualifying set, or None if none was found.
+        """
+        url = f"{self.base_url}/sets"
+        response = requests.get(url, headers=self._get_request_headers(),
+                                timeout=self.REQUEST_TIMEOUT)
+        response.raise_for_status()
+        horizon = (date.today() + timedelta(days=max_days_ahead)).isoformat()
+        best_key = None
+        best = None
+        for s in response.json().get('data', []):
+            if s.get('digital') or s.get('set_type') not in self.MAIN_SET_TYPES:
+                continue
+            if not s.get('card_count'):
+                continue
+            released = s.get('released_at') or ''
+            if not released or released > horizon:
+                continue
+            # Prefer the later release; on a tie (e.g. a set and its
+            # Commander decks share a date) prefer the main expansion.
+            key = (released, 1 if s.get('set_type') == 'expansion' else 0)
+            if best_key is None or key > best_key:
+                best_key = key
+                best = {'name': s.get('name'), 'code': s.get('code'),
+                        'released_at': released,
+                        'card_count': s.get('card_count', 0),
+                        'set_type': s.get('set_type')}
+        return best
 
     def _get_bulk_download(self, bulk_metadata: Dict[str, Any]) -> tuple:
         """Resolve the bulk file download URI, preferring the JSONL format.
