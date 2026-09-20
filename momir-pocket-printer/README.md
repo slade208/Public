@@ -326,6 +326,18 @@ before the LED lights.
 paper only prints on one side. Flip the roll (see the printer prep
 step).
 
+**Download looks hung / got interrupted:** during a big download expect
+a progress line at least every ~100 images - slow Wi-Fi means slow, not
+stuck (watch `momir logs` or `du -sh cards/` grow). If a run does die
+(Ctrl-C, network drop, power), nothing already downloaded is lost:
+resume with plain `momir update`, never by re-running
+`momir update full` (full wipes and starts over). Also know that the
+app service runs its own update on every restart - it may quietly
+finish an interrupted download in the background, which is why a later
+`momir update` can report "no refresh needed" out of nowhere. Field
+note: if you see "another card update is already running - waiting",
+that's this protection working; let it wait.
+
 **Card overlay shows grayscale art instead of the real card:** the
 library was downloaded before full-color card images were stored. Run
 `momir update full` overnight (on home Wi-Fi) to re-download every

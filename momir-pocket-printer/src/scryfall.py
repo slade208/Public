@@ -1,5 +1,6 @@
 """Scryfall API client for downloading and managing Magic: The Gathering card data."""
 
+import fcntl
 import json
 import logging
 import random
@@ -836,6 +837,15 @@ class Scryfall:
                             if force_full_refresh or not self.card_exists_locally(card_id, cmc):
                                 self.process_and_save_card(card)
                                 stats['new_cards'] += 1
+                                # Image downloads dominate the runtime, and
+                                # the per-1000-processed line can be 30+
+                                # minutes away - heartbeat so a slow run
+                                # doesn't look hung.
+                                if stats['new_cards'] % 100 == 0:
+                                    logger.info(
+                                        f"{stats['new_cards']} card images "
+                                        f"downloaded (latest: {card.get('name')}) "
+                                        f"- still going.")
                             else:
                                 stats['skipped_cards'] += 1
 
@@ -851,14 +861,42 @@ class Scryfall:
     def refresh_card_data(self, force_full_refresh: bool = False) -> None:
         """Refresh card data, downloading only new/updated cards unless force_full_refresh is True.
 
+        Cross-process safe: the app service and the momir CLI can both
+        start a refresh, and without coordination the two would silently
+        interleave on the same directories (confusing: one finishes the
+        other's work in the background). A file lock makes the second
+        caller wait - it says so in the log - and once through, it
+        usually finds the work already done ("No refresh needed").
+
         Args:
-            force_full_refresh: If True, delete and re-download all data. 
+            force_full_refresh: If True, delete and re-download all data.
                               If False, perform incremental update.
 
         Raises:
             requests.RequestException: If API requests fail
             Exception: If processing fails for any other reason
         """
+        # The lock lives next to (not inside) cards_path: a full refresh
+        # deletes cards_path, which would silently break a lock in it.
+        lock_path = self.cards_path.parent / '.momir-update.lock'
+        with open(lock_path, 'w') as lock_file:
+            try:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                logger.info(
+                    "Another card update is already running (the app service "
+                    "and 'momir update' share one update at a time). Waiting "
+                    "for it to finish instead of running twice...")
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                logger.info(
+                    "The other update finished; checking what's left to do.")
+            try:
+                self._refresh_card_data_locked(force_full_refresh)
+            finally:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+    def _refresh_card_data_locked(self, force_full_refresh: bool) -> None:
+        """The actual refresh; caller holds the update lock."""
         # Check if refresh is needed
         if not force_full_refresh and not self.needs_refresh():
             logger.info("No refresh needed. Card data is already up to date.")
