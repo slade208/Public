@@ -212,9 +212,15 @@ Update cards" notice until the host updates.
 
 Spoiler-season cards count: Scryfall doesn't mark new cards as
 paper-playable until release day, but the app admits cards from
-not-yet-released sets anyway, so a fully spoiled set is playable before
-its release weekend (sets releasing more than ~3 weeks out are ignored,
-since early previews are incomplete). Turn this off with
+not-yet-released sets anyway - the moment a card is officially
+previewed and lands on Scryfall (they don't index leaks, only
+Wizards-sanctioned reveals), the next update makes it summonable, even
+months before its set releases. Side effect: the page's "Cards
+through \<set\>" line names the *latest-releasing* set with any card
+in the pool, which during early preview season can be a set that's
+only a handful of cards deep. The amber "New set on Scryfall" notice
+is stricter - it only fires for sets within ~3 weeks of release, when
+they're fully spoiled. Turn spoilers off entirely with
 `include_spoilers = False` under `[SCRYFALL]` if you want strictly
 released cards only.
 
