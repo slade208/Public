@@ -294,9 +294,13 @@ function setDisabled(on) {
 
 // Mirrors the Pocket Printer's pool: paper-legal creatures, no funny sets,
 // no memorabilia. Scryfall's random endpoint excludes tokens/extras itself.
+// Preview cards aren't flagged game:paper until release day, so cards from
+// sets that haven't released yet are accepted too - an officially spoiled
+// card is summonable months early, same as the Pocket Printer.
 function queryFor(cmc) {
-  return 't:creature game:paper cmc=' + cmc +
-         ' -st:funny -st:memorabilia -st:minigame';
+  const today = new Date().toISOString().slice(0, 10);
+  return 't:creature (game:paper or date>' + today + ') cmc=' + cmc +
+         ' -st:funny -st:memorabilia -st:minigame -st:alchemy';
 }
 
 async function summon(cmc) {
