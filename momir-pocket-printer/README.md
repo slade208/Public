@@ -295,6 +295,17 @@ iw wlan0 get power_save              # should say: Power save: off
 sudo iw wlan0 set power_save off     # immediate, until reboot
 ```
 
+**Wi-Fi drops for a few seconds several times an hour:** if
+`sudo journalctl -u wpa_supplicant | grep -i disconnect` shows
+`locally_generated=1` disconnects right after `dhcp4 ... restarting`
+lines, the home router is slow to answer DHCP lease renewals and
+NetworkManager bounces the link each time (field-diagnosed on a router
+handing out 2-hour leases). `setup.sh` now hardens every Wi-Fi profile
+with `ipv4.dhcp-timeout infinity`, which keeps the link and address up
+while DHCP retries quietly - re-run `sudo ./setup.sh` after a pull to
+apply it. A DHCP reservation for the Pi in the router's admin page is
+a nice extra but not required.
+
 **Card downloads failing:** transient Scryfall/Wi-Fi errors retry
 automatically; just re-run `momir update` if a run dies - it resumes
 incrementally and skips everything already downloaded.

@@ -55,6 +55,21 @@ fi
 PS_IFACE="$(get_config WIFI ap_interface)"
 iw "${PS_IFACE:-wlan0}" set power_save off 2>/dev/null || true
 
+echo "==> Hardening Wi-Fi against flaky home routers (DHCP renewals)..."
+# Without this, NetworkManager drops and re-associates Wi-Fi whenever the
+# router is slow to answer a DHCP lease renewal - brief blips that break
+# downloads and SSH (field-diagnosed). "infinity" keeps the link and the
+# current address up while DHCP quietly retries. Applied to every Wi-Fi
+# client profile (the Imager-created one included); momir-ap serves its
+# own addresses and needs nothing.
+if command -v nmcli >/dev/null; then
+    while IFS=: read -r con_name con_type; do
+        [[ "$con_type" == "802-11-wireless" && "$con_name" != "momir-ap" ]] || continue
+        nmcli con modify "$con_name" ipv4.dhcp-timeout infinity 2>/dev/null \
+            && echo "    $con_name: dhcp-timeout=infinity" || true
+    done < <(nmcli -t -f NAME,TYPE con show 2>/dev/null)
+fi
+
 echo "==> Installing hotspot helper (phone-toggleable hotspot)..."
 install -m 755 "$PROJECT_DIR/scripts/momir-hotspot" /usr/local/bin/momir-hotspot
 echo "MOMIR_CONFIG=$CONFIG_FILE" > /etc/momir-pocket-printer.env

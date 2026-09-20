@@ -135,6 +135,9 @@ case "${1:-status}" in
             nmcli con add type wifi ifname "$AP_IFACE" con-name momir-home \
                 autoconnect yes ssid "$SSID"
         fi
+        # Keep the link up while a flaky router dawdles on DHCP renewals
+        # (same hardening setup.sh applies to pre-existing profiles).
+        nmcli con modify momir-home ipv4.dhcp-timeout infinity 2>/dev/null || true
         if [[ -n "$PASSWORD" ]]; then
             nmcli con modify momir-home \
                 wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$PASSWORD"
