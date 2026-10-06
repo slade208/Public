@@ -31,9 +31,21 @@ get_config() {
 
 profile_exists() { nmcli -t -f NAME con show | grep -qx momir-ap; }
 
-wifi_connected() {
+home_wifi_connected() {
+    # An active Wi-Fi client profile - the hotspot itself doesn't count.
     nmcli -t -f NAME,TYPE con show --active 2>/dev/null \
-        | grep -q ':802-11-wireless$'
+        | grep ':802-11-wireless$' | grep -qv '^momir-ap:'
+}
+
+hotspot_active() {
+    nmcli -t -f NAME con show --active 2>/dev/null | grep -qx momir-ap
+}
+
+hotspot_clients() {
+    # Number of phones joined to the hotspot (0 if iw is unavailable).
+    local iface
+    iface="$(get_config WIFI ap_interface)"
+    iw dev "${iface:-wlan0}" station dump 2>/dev/null | grep -c '^Station' || true
 }
 
 ensure_profile() {
@@ -83,8 +95,43 @@ case "${1:-status}" in
         # has had no Wi-Fi connection for two consecutive runs, raise the
         # hotspot WITHOUT enabling autoconnect, so a reboot back in range of
         # a known network returns to normal client mode on its own.
+        #
+        # While that rescue hotspot is up, the radio can't also look for
+        # home networks, so a router reboot or a brief outage used to
+        # strand the Pi on its hotspot until someone power-cycled it. Every
+        # RETRY_EVERY seconds, if no phone is on the hotspot, step aside
+        # and give NetworkManager a minute to rejoin a known network.
         MARKER=/run/momir-net-down
-        if wifi_connected; then
+        RETRY_STAMP=/run/momir-net-retry
+        RETRY_EVERY=600
+        if hotspot_active; then
+            if [[ "$(nmcli -g connection.autoconnect con show momir-ap)" == "yes" ]]; then
+                exit 0   # the host turned the hotspot on deliberately
+            fi
+            now=$(date +%s)
+            last=$(cat "$RETRY_STAMP" 2>/dev/null || echo 0)
+            (( now - last >= RETRY_EVERY )) || exit 0
+            echo "$now" > "$RETRY_STAMP"
+            clients=$(hotspot_clients)
+            if (( clients > 0 )); then
+                echo "Rescue hotspot has $clients client(s); not checking for home Wi-Fi."
+                exit 0
+            fi
+            echo "Rescue hotspot idle; checking whether a known Wi-Fi network is back..."
+            nmcli con down momir-ap || true
+            for (( i = 0; i < 60; i++ )); do
+                if home_wifi_connected; then
+                    echo "Rejoined home Wi-Fi; rescue hotspot stays off."
+                    rm -f "$RETRY_STAMP"
+                    exit 0
+                fi
+                sleep 1
+            done
+            echo "No known Wi-Fi network in range; raising the rescue hotspot again."
+            nmcli con up momir-ap
+            exit 0
+        fi
+        if home_wifi_connected; then
             rm -f "$MARKER"
             exit 0
         fi
@@ -96,6 +143,7 @@ case "${1:-status}" in
         echo "No Wi-Fi connection found twice in a row; raising rescue hotspot."
         ensure_profile no
         nmcli con up momir-ap
+        date +%s > "$RETRY_STAMP"
         ;;
     off)
         if profile_exists; then

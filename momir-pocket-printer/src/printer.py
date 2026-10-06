@@ -110,6 +110,7 @@ class Printer:
                 )
             else:
                 from escpos.printer import Serial
+                self._wait_for_bluetooth()
                 printer = Serial(
                     devfile=self.serial_port,
                     baudrate=self.serial_baud_rate,
@@ -126,6 +127,30 @@ class Printer:
         except Exception as e:
             logger.error(f"Failed to connect to printer ({self}): {e}")
             raise
+
+    # The rfcomm binding (scripts/momir-rfcomm) backs off to one connect
+    # attempt every 2 minutes while the printer is off, to spare the Pi's
+    # shared Wi-Fi/Bluetooth radio. Touching this file makes it retry now.
+    BLUETOOTH_WAKE_FILE = Path('/dev/shm/momir-printer-wake')
+    BLUETOOTH_WAKE_TIMEOUT_S = 12
+
+    def _wait_for_bluetooth(self) -> None:
+        """If the printer isn't bound yet, ask for an immediate reconnect
+        and give it a few seconds to come up before printing."""
+        device = Path(self.serial_port)
+        if device.exists():
+            return
+        try:
+            self.BLUETOOTH_WAKE_FILE.touch()
+        except OSError as e:
+            logger.debug(f"Could not signal the rfcomm binding: {e}")
+            return
+        deadline = time.monotonic() + self.BLUETOOTH_WAKE_TIMEOUT_S
+        while time.monotonic() < deadline:
+            if device.exists():
+                time.sleep(0.5)  # let the SPP link settle before writing
+                return
+            time.sleep(0.25)
 
     _usb_checked_at: float = 0.0
     _usb_available: bool = False

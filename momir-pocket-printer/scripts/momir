@@ -95,7 +95,7 @@ PY
             if bluetoothctl info "$MAC" 2>/dev/null | grep -q "Connected: yes"; then
                 echo "printer: ${NAME:-$MAC} CONNECTED"
             else
-                echo "printer: ${NAME:-$MAC} NOT CONNECTED (is it on? rfcomm retries every 10s)"
+                echo "printer: ${NAME:-$MAC} NOT CONNECTED (is it on? retries every 2 min, or right away when someone prints)"
             fi
         else
             echo "printer: not configured (bluetooth_mac unset)"

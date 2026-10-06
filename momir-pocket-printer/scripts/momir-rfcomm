@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Momir Pocket Printer Bluetooth binding. Installed to /usr/local/bin by
+# setup.sh and run by momir-rfcomm.service.
+#
+# Usage: momir-rfcomm <printer-mac>
+#
+# Holds /dev/rfcomm0 open while the printer is reachable and reconnects
+# when it drops - but backs off while the printer is off. On the Pi Zero
+# (2) W, Wi-Fi and Bluetooth share one radio, and every failed connect
+# spends ~5s paging the printer, starving Wi-Fi. Retrying every 10s cost
+# a few seconds of dead network every 15s (field-diagnosed: 0/30 pings
+# lost with the binding stopped vs 5/30 running). So the retry delay
+# doubles from 10s up to 2 minutes, and the web app touches $WAKE_FILE
+# when someone tries to print so a freshly switched-on printer connects
+# right away instead of waiting out the backoff.
+set -uo pipefail
+
+MAC="${1:?usage: momir-rfcomm <printer-mac>}"
+WAKE_FILE=/dev/shm/momir-printer-wake
+MIN_DELAY=10
+MAX_DELAY=120
+# A connect that lasted this long was a real session, not a failed page.
+CONNECTED_FOR=30
+
+delay=$MIN_DELAY
+while true; do
+    rm -f "$WAKE_FILE"
+    started=$SECONDS
+    /usr/bin/rfcomm connect 0 "$MAC" 1
+    if (( SECONDS - started >= CONNECTED_FOR )); then
+        delay=$MIN_DELAY
+    fi
+    echo "Printer not connected; retrying in ${delay}s (sooner if someone prints)."
+    for (( i = 0; i < delay; i++ )); do
+        [[ -e "$WAKE_FILE" ]] && break
+        sleep 1
+    done
+    (( delay = delay * 2 > MAX_DELAY ? MAX_DELAY : delay * 2 ))
+done
