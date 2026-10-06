@@ -36,7 +36,7 @@ BT_MAC="$(get_config PRINTER bluetooth_mac)"
 
 echo "==> Installing system packages..."
 apt-get update -qq
-apt-get install -y -qq git python3-venv python3-pip bluez libopenjp2-7
+apt-get install -y -qq git python3-venv python3-pip bluez libopenjp2-7 iw
 
 echo "==> Creating Python virtual environment..."
 sudo -u "$RUN_USER" python3 -m venv "$PROJECT_DIR/.venv"
@@ -69,6 +69,19 @@ if command -v nmcli >/dev/null; then
             && echo "    $con_name: dhcp-timeout=infinity" || true
     done < <(nmcli -t -f NAME,TYPE con show 2>/dev/null)
 fi
+
+echo "==> Keeping system logs across reboots..."
+# Out of the box the journal lives in RAM, so after a hang or a power
+# cycle there's no record of what went wrong. Capped small for SD cards.
+mkdir -p /etc/systemd/journald.conf.d /var/log/journal
+cat > /etc/systemd/journald.conf.d/momir-persistent.conf <<'EOF'
+# Installed by momir-pocket-printer setup.sh.
+[Journal]
+Storage=persistent
+SystemMaxUse=64M
+EOF
+systemctl restart systemd-journald
+journalctl --flush 2>/dev/null || true
 
 echo "==> Installing hotspot helper (phone-toggleable hotspot)..."
 install -m 755 "$PROJECT_DIR/scripts/momir-hotspot" /usr/local/bin/momir-hotspot
@@ -171,6 +184,7 @@ EOF
     fi
 
     echo "==> Installing rfcomm binding service for $BT_MAC..."
+    install -m 755 "$PROJECT_DIR/scripts/momir-rfcomm" /usr/local/bin/momir-rfcomm
     cat > "/etc/systemd/system/$RFCOMM_SERVICE_NAME.service" <<EOF
 [Unit]
 Description=Bind PT-210 thermal printer to /dev/rfcomm0
@@ -179,7 +193,7 @@ Requires=bluetooth.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/rfcomm connect 0 $BT_MAC 1
+ExecStart=/usr/local/bin/momir-rfcomm $BT_MAC
 Restart=always
 RestartSec=10
 
@@ -187,7 +201,8 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
-    systemctl enable --now "$RFCOMM_SERVICE_NAME.service"
+    systemctl enable "$RFCOMM_SERVICE_NAME.service"
+    systemctl restart "$RFCOMM_SERVICE_NAME.service"
 elif [[ "$CONNECTION_MODE" == "usb" ]]; then
     echo "==> USB mode: granting $RUN_USER access to USB printers (plugdev)..."
     usermod -aG plugdev "$RUN_USER" || true

@@ -529,7 +529,7 @@ async function pollStatus() {
     if (typeof s.printer === 'boolean') {
       ps.hidden = false;
       ps.textContent = s.printer ? '\u{1F5A8} Printer: connected'
-                                 : '\u{1F5A8} Printer: offline (is it on?)';
+                                 : '\u{1F5A8} Printer: offline (turn it on, then print)';
       ps.className = s.printer ? 'ok' : 'bad';
     }
   } catch (e) {

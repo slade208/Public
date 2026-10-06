@@ -270,7 +270,11 @@ watchdog notices there's no Wi-Fi connection after ~4 minutes and raises
 the hotspot automatically. So the recovery is: plug it in, wait a few
 minutes, join the hotspot SSID, and use **Home Wi-Fi** / the hotspot
 toggle as usual. The rescue hotspot is temporary - it doesn't change the
-saved mode, so a reboot back home reconnects to home Wi-Fi normally.
+saved mode. It also checks for its way home: every ~10 minutes, if no
+phone is joined to it, it steps aside for a minute and lets the Pi rejoin
+any known network that's back in range (say, after a router reboot or a
+power cut that took the router down longer than the Pi). A hotspot you
+turned on yourself is never interrupted.
 
 ### Moving to a new home network (no Linux needed)
 
@@ -286,7 +290,12 @@ at their own Wi-Fi: everything happens from the phone.
 sudo journalctl -u momir-pocket-printer.service -f   # live logs
 sudo systemctl restart momir-pocket-printer.service  # after config changes
 sudo systemctl status momir-rfcomm.service           # bluetooth binding
+sudo journalctl -b -1 -e                             # end of the PREVIOUS boot
 ```
+
+`setup.sh` keeps the system journal on the SD card (capped at 64MB), so
+after a hang or a power cycle `journalctl -b -1` shows what happened
+right before it.
 
 ## Troubleshooting
 
@@ -312,6 +321,24 @@ while DHCP retries quietly - re-run `sudo ./setup.sh` after a pull to
 apply it. A DHCP reservation for the Pi in the router's admin page is
 a nice extra but not required.
 
+**Pi drops off the network for a few seconds every ~15 seconds (printer
+off):** on the Pi Zero (2) W, Wi-Fi and Bluetooth share one radio, and each
+attempt to reach a switched-off printer spends ~5 seconds paging it with
+Wi-Fi starved in the meantime (field-diagnosed: 0 of 30 pings lost with the
+printer binding stopped, 5 of 30 lost with it retrying every 10s). The
+binding now backs off to one attempt every 2 minutes while the printer is
+unreachable, and pressing print wakes it immediately - re-run
+`sudo ./setup.sh` after a pull to install it. If you never use the printer
+with this Pi, `sudo systemctl disable --now momir-rfcomm` stops the paging
+entirely.
+
+**Wi-Fi country code:** set it with `sudo raspi-config` (Localisation
+Options -> WLAN Country) and reboot. Use a code the wireless regulatory
+database knows - e.g. `GB` in Jersey/Guernsey/the Isle of Man, since `JE`
+is not in it. An unknown code silently falls back to the restrictive
+"world" domain, and `sudo journalctl -u wpa_supplicant` fills with
+`REGDOM-CHANGE ... type=WORLD` every few seconds.
+
 **Card downloads failing:** transient Scryfall/Wi-Fi errors retry
 automatically; just re-run `momir update` if a run dies - it resumes
 incrementally and skips everything already downloaded.
@@ -326,8 +353,10 @@ adapter says NotReady, run `power on` in bluetoothctl first (and
 **Printer won't print:** check connectivity anywhere it surfaces - the
 "Printer: connected/offline" line on the web page, `momir status`, the
 SSH login banner, or the printer's antenna LED (steady = connected).
-The rfcomm binding auto-reconnects every 10s while the printer is off
-or out of range, so powering the printer on is usually the whole fix.
+The rfcomm binding keeps retrying while the printer is off or out of
+range (backing off to every 2 minutes, to spare the Pi's Wi-Fi), and
+pressing print makes it retry right away - so powering the printer on and
+printing is usually the whole fix.
 `momir logs` shows both services live.
 
 **Printer won't charge (no LED when plugged in):** cheap USB-C devices
