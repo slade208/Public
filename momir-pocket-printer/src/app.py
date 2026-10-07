@@ -436,6 +436,18 @@ def status():
     return jsonify(payload)
 
 
+@app.route('/printer/connect', methods=['POST'])
+def printer_connect():
+    """Retry the printer now instead of waiting out the binding's backoff."""
+    err = _require('host', 'approved')
+    if err:
+        return err
+    connected = printer.reconnect()
+    return jsonify({'ok': connected,
+                    'error': '' if connected else
+                    'Printer not found - is it switched on and nearby?'})
+
+
 @app.route('/host/update-cards', methods=['POST'])
 def host_update_cards():
     err = _require('host')

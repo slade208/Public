@@ -181,6 +181,16 @@
   #printerStatus { font-size: 0.78rem; }
   #printerStatus.ok { color: var(--accent); }
   #printerStatus.bad { color: #e0a548; }
+  #printerBox { display: flex; align-items: center; gap: 8px; }
+  #printerConnect {
+    padding: 0;
+    background: none;
+    border: none;
+    color: #e0a548;
+    text-decoration: underline;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
   #modeToggle {
     padding: 8px 16px;
     font-size: 0.8rem;
@@ -284,7 +294,10 @@
     <div id="status"><span class="state">Connecting&hellip;</span></div>
 
     <div id="controlRow">
-      <div id="printerStatus" hidden></div>
+      <div id="printerBox">
+        <div id="printerStatus" hidden></div>
+        <button id="printerConnect" hidden>Connect</button>
+      </div>
       <button id="modeToggle">&#128424; Printing to paper</button>
     </div>
 
@@ -492,6 +505,32 @@ document.getElementById('ticket').onclick = async () => {
   busy = false;
 };
 
+// The Pi only checks for a switched-off printer every couple of minutes
+// (to spare its Wi-Fi), so after turning the printer on, Connect makes it
+// look right now. Printing does the same thing automatically.
+document.getElementById('printerConnect').onclick = async () => {
+  const btn = document.getElementById('printerConnect');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  try {
+    const res = await fetch('/printer/connect', {method: 'POST'});
+    const data = await res.json();
+    if (data.ok) {
+      const ps = document.getElementById('printerStatus');
+      ps.textContent = '\u{1F5A8} Printer: connected';
+      ps.className = 'ok';
+      btn.hidden = true;
+    } else {
+      showStatus('Printer not found', data.error || 'Is it switched on?');
+    }
+  } catch (e) {
+    showStatus('Connection lost', 'Is the Pi awake and on the same network?');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Connect';
+};
+
 async function pollStatus() {
   if (busy) return;
   try {
@@ -529,8 +568,9 @@ async function pollStatus() {
     if (typeof s.printer === 'boolean') {
       ps.hidden = false;
       ps.textContent = s.printer ? '\u{1F5A8} Printer: connected'
-                                 : '\u{1F5A8} Printer: offline (turn it on, then print)';
+                                 : '\u{1F5A8} Printer: offline';
       ps.className = s.printer ? 'ok' : 'bad';
+      document.getElementById('printerConnect').hidden = s.printer;
     }
   } catch (e) {
     showStatus('Connecting…', 'Waiting for the printer service');

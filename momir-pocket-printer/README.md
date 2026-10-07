@@ -359,8 +359,9 @@ adapter says NotReady, run `power on` in bluetoothctl first (and
 SSH login banner, or the printer's antenna LED (steady = connected).
 The rfcomm binding keeps retrying while the printer is off or out of
 range (backing off to every 2 minutes, to spare the Pi's Wi-Fi), and
-pressing print makes it retry right away - so powering the printer on and
-printing is usually the whole fix.
+pressing print (or **Connect** next to "Printer: offline" on the web
+page) makes it retry right away - so powering the printer on and printing
+is usually the whole fix.
 `momir logs` shows both services live.
 
 **Printer won't charge (no LED when plugged in):** cheap USB-C devices
