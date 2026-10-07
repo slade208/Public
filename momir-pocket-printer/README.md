@@ -48,8 +48,12 @@ know at a glance whether it's time to update after a set release.
 
 1. Flash **Raspberry Pi OS Lite (64-bit)** with Raspberry Pi Imager. In the
    customization step set hostname `momir`, enable SSH, set your user, and
-   enter your home Wi-Fi (2.4GHz). Boot, then `ssh <you>@momir.local` and
-   clone this repo (Lite does not ship with git):
+   enter your home Wi-Fi (2.4GHz). Set the **Wireless LAN country to `GB`**
+   (or your own country's code) - not `JE`/`GG`/`IM`: those aren't in the
+   Wi-Fi regulatory database, and an unknown code makes the Wi-Fi
+   misbehave (see Troubleshooting). The keyboard layout and language
+   don't matter. Boot, then `ssh <you>@momir.local` and clone this repo
+   (Lite does not ship with git):
 
    ```shell
    sudo apt update && sudo apt install -y git
