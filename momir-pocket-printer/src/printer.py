@@ -152,6 +152,16 @@ class Printer:
                 return
             time.sleep(0.25)
 
+    def reconnect(self) -> bool:
+        """Try to reach the printer right now (the web page's Connect
+        button) and return whether it's connected."""
+        if self.connection_mode == 'bluetooth':
+            self._wait_for_bluetooth()
+            return self.is_connected()
+        self._usb_checked_at = time.monotonic()
+        self._usb_available = self.is_available()
+        return self._usb_available
+
     _usb_checked_at: float = 0.0
     _usb_available: bool = False
 
